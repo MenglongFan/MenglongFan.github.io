@@ -1,684 +1,486 @@
+<!-- 设计系统：彩格调 (CaiGeDiao) 令牌 v1 · 吕祖灵签原型 · 单文件 / 无外部依赖 / 资源全内联 -->
+<!-- 修订：依据 critique-reviewer P1/P2 补强（reduced-motion 降级、落签锚定筒口、focus-visible、aria-live） -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-Hans">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LONE — 独立开发者</title>
-<meta name="description" content="LONE · 独立开发者 · Independent Developer. Building in the open.">
-<meta property="og:title" content="LONE — 独立开发者">
-<meta property="og:description" content="LONE · 独立开发者 · Building in the open.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://MenglongFan.github.io/">
-<meta name="theme-color" content="#0A0A0B">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230A0A0B'/%3E%3Ctext x='32' y='45' font-family='Arial Black,sans-serif' font-weight='900' font-size='36' fill='%23D9FF3F' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://api.fontshare.com">
-<link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700;900&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>吕祖灵签</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%239E2B25'/><text x='16' y='23' font-size='19' text-anchor='middle' fill='white' font-family='serif'>吕</text></svg>">
 <style>
-  :root {
-    --bg: #0A0A0B;
-    --ink: #F4F1EA;
-    --muted: #75726A;
-    --lime: #D9FF3F;
-    --cyan: #55D6FF;
-    --line: rgba(244, 241, 234, 0.14);
-    --display: "Clash Display", "Arial Black", sans-serif;
-    --sans: "Noto Sans SC", "PingFang SC", sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, monospace;
-    --serif-sc: "Noto Serif SC", "Songti SC", serif;
+  /* ============ 设计令牌（严格遵守 彩格调） ============ */
+  :root{
+    --bg:#FAFAF8;          /* 背景 宣纸 */
+    --ink:#2B2B2B;         /* 主文 墨灰 */
+    --ink-light:#6E6E6E;   /* 次级 浅墨（正文级，≈4.87:1 达 WCAG AA） */
+    --line:#D8D5CE;        /* 1px 分隔线 */
+    --seal:#9E2B25;        /* 朱印红（仅用于印章/签印/点缀） */
+    --font-title:"Kaiti SC","STKaiti","KaiTi",serif;   /* 楷体栈 */
+    --font-body:"Songti SC","STSong","SimSun",serif;   /* 宋体栈 */
+    --maxw:760px;          /* 内容最大宽度 */
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
+  body{min-height:100vh;}
 
-  html.lenis, html.lenis body { height: auto; }
-  .lenis.lenis-smooth { scroll-behavior: auto !important; }
-  .lenis.lenis-stopped { overflow: hidden; }
+  /* ============ 屏幕阅读器专用（视觉隐藏） ============ */
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
-  html { scroll-behavior: smooth; }
+  /* ============ 状态机 ============ */
+  .state{display:none;}
+  .state.is-active{
+    display:flex;flex-direction:column;align-items:center;justify-content:safe center;
+    min-height:100vh;padding:48px 16px;
+    animation:enter .6s ease-out both;   /* 页面过渡：淡入 + 上移12px */
+  }
+  @keyframes enter{
+    from{opacity:0;transform:translateY(12px);}
+    to{opacity:1;transform:none;}
+  }
+  .inner{width:100%;max-width:var(--maxw);margin:0 auto;}
 
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
+  /* ============ 态A 首页 ============ */
+  .home-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .wordmark{
+    font-family:var(--font-title);font-size:28px;line-height:1.8;letter-spacing:0.08em;
+    color:var(--ink);font-weight:400;margin-bottom:24px;
   }
+  .guide{
+    font-family:var(--font-body);font-size:16px;line-height:1.9;letter-spacing:0.04em;
+    color:var(--ink-light);margin-bottom:72px;
+  }
+  .tube-wrap{position:relative;margin-bottom:56px;}   /* relative 以便落签锚定筒口 */
+  .tube-svg{display:block;width:160px;height:240px;}
 
-  ::selection { background: var(--lime); color: var(--bg); }
-  ::-webkit-scrollbar { width: 10px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: #2a2a2c; border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--lime); }
+  .btn-shake{
+    background:none;border:1px solid var(--ink);border-radius:2px;
+    font-family:var(--font-title);font-size:18px;letter-spacing:0.2em;color:var(--ink);
+    padding:14px 48px;cursor:pointer;
+    transition:border-color .35s ease,color .35s ease;
+  }
+  .btn-shake:hover{border-color:var(--seal);color:var(--seal);}  /* hover 转朱印红描边 */
 
-  a { color: inherit; text-decoration: none; }
-
-  /* ---------- 颗粒 ---------- */
-  .grain {
-    position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: 0.07;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* ============ 态B 摇签动画 ============ */
+  .shake-inner{display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;}
+  .shake-hint{
+    font-family:var(--font-title);font-size:16px;letter-spacing:0.12em;
+    color:var(--ink-light);margin-bottom:48px;
   }
-
-  /* ---------- 自定义光标 ---------- */
-  .cursor-dot, .cursor-ring {
-    position: fixed; top: 0; left: 0; z-index: 1000;
-    pointer-events: none; border-radius: 50%;
-    transform: translate(-100px, -100px);
+  .tube{transform-box:fill-box;transform-origin:50% 96%;}
+  .tube.shaking{animation:shake 1.2s cubic-bezier(0.4,0,0.2,1);}  /* ±8° 三晃 落签 */
+  @keyframes shake{
+    0%{transform:rotate(0deg);}
+    12%{transform:rotate(8deg);}
+    28%{transform:rotate(-8deg);}
+    44%{transform:rotate(8deg);}
+    60%{transform:rotate(-8deg);}
+    76%{transform:rotate(8deg);}
+    88%{transform:rotate(-8deg);}
+    100%{transform:rotate(0deg);}
   }
-  .cursor-dot {
-    width: 8px; height: 8px; background: var(--lime);
-    transition: width .2s, height .2s, background .2s;
+  /* 落签：锚定 tube-wrap，top:40% 即筒口高度（viewBox 中筒口 cy=120/300），自筒口落下 */
+  .falling-stick{
+    position:absolute;left:50%;top:40%;width:40px;height:120px;
+    transform:translateX(-50%);opacity:0;pointer-events:none;
   }
-  .cursor-ring {
-    width: 36px; height: 36px; border: 1px solid rgba(217,255,63,.6);
-    transition: width .25s, height .25s, border-color .25s;
-  }
-  body.cursor-hover .cursor-dot { width: 4px; height: 4px; }
-  body.cursor-hover .cursor-ring { width: 56px; height: 56px; border-color: var(--lime); }
-  @media (pointer: coarse) { .cursor-dot, .cursor-ring { display: none; } }
-
-  /* ---------- 顶栏 ---------- */
-  .topbar {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 1.4rem 2rem;
-    font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--muted);
-    mix-blend-mode: difference;
-  }
-  .topbar .brand { font-weight: 500; color: var(--ink); }
-  .topbar .right { display: flex; align-items: center; gap: 1.6rem; }
-  .clock { display: flex; align-items: center; gap: .5rem; }
-  .clock .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); animation: pulse 2s infinite; }
-  .topbar a { transition: color .25s; }
-  .topbar a:hover { color: var(--lime); }
-  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .3; transform: scale(.7);} }
-
-  /* ---------- Hero ---------- */
-  .hero {
-    position: relative;
-    min-height: 100svh;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 0 2rem;
-    overflow: hidden;
-  }
-  /* 背景光斑 */
-  .blob {
-    position: absolute; border-radius: 50%; filter: blur(110px); opacity: .16; pointer-events: none;
-    animation: drift 18s ease-in-out infinite alternate;
-  }
-  .blob.a { width: 46vw; height: 46vw; background: var(--lime); top: -12%; left: -8%; }
-  .blob.b { width: 40vw; height: 40vw; background: var(--cyan); bottom: -14%; right: -6%; animation-delay: -9s; }
-  @keyframes drift {
-    from { transform: translate(0, 0) scale(1); }
-    to { transform: translate(6vw, 4vh) scale(1.15); }
-  }
-  /* 点阵背景 */
-  .dots {
-    position: absolute; inset: 0; pointer-events: none; opacity: .5;
-    background-image: radial-gradient(rgba(244,241,234,.09) 1px, transparent 1px);
-    background-size: 34px 34px;
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
-            mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
+  .falling-stick.drop{animation:fall .72s ease-in forwards;}
+  @keyframes fall{
+    0%{opacity:0;transform:translateX(-50%) translateY(-40px);}
+    20%{opacity:1;}
+    100%{opacity:0;transform:translateX(-50%) translateY(40px);}
   }
 
-  .hero-inner { position: relative; z-index: 2; will-change: transform; }
+  /* ============ 态C 解签卡 ============ */
+  .result-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .brand-mini{
+    font-family:var(--font-body);font-size:13px;letter-spacing:0.16em;
+    color:var(--ink-light);margin-bottom:32px;
+  }
+  .sign-head{display:flex;flex-direction:column;align-items:center;gap:16px;margin-bottom:8px;}
+  .seal{
+    width:48px;height:48px;background:var(--seal);color:#fff;
+    font-family:var(--font-title);font-size:13px;line-height:1;letter-spacing:1px;
+    display:flex;align-items:center;justify-content:center;
+    writing-mode:vertical-rl;white-space:nowrap;border-radius:0;
+    box-shadow:inset 0 0 0 1px rgba(250,250,248,0.5); /* 1px inset 内描 */
+  }
+  .sign-level{font-family:var(--font-title);font-size:20px;letter-spacing:0.1em;color:var(--ink);}
+  .sign-title{font-family:var(--font-title);font-size:28px;line-height:1.8;letter-spacing:0.08em;color:var(--ink);}
 
-  .overline {
-    font-family: var(--mono); font-size: .78rem; letter-spacing: .34em; text-transform: uppercase;
-    color: var(--muted); display: flex; align-items: center; gap: .8rem;
+  .poem-block{
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding:32px 0;margin:40px 0;width:100%;
   }
-  .overline::before { content: ""; width: 34px; height: 1px; background: var(--lime); }
+  .poem{font-family:var(--font-body);font-size:20px;line-height:2.0;text-align:center;color:var(--ink);letter-spacing:0.04em;}
+  .poem span{display:block;}
 
-  .name {
-    font-family: var(--display); font-weight: 700;
-    font-size: clamp(5rem, 23vw, 17rem);
-    line-height: .88; letter-spacing: -.02em;
-    margin: 1.6rem 0 1.4rem;
-    display: flex; align-items: baseline; gap: .06em;
-  }
-  .name .o { color: var(--lime); text-shadow: 0 0 60px rgba(217,255,63,.45); animation: glow 3s ease-in-out infinite alternate; }
-  @keyframes glow { from { text-shadow: 0 0 40px rgba(217,255,63,.25);} to { text-shadow: 0 0 90px rgba(217,255,63,.6);} }
-  .name .ne { color: transparent; -webkit-text-stroke: 1.5px var(--ink); }
+  .field{width:100%;text-align:left;margin:32px 0;}
+  .field-center{text-align:center;}
+  .field-label{font-family:var(--font-title);font-size:16px;letter-spacing:0.08em;color:var(--ink);margin-bottom:12px;}
+  .field-text{font-family:var(--font-body);font-size:16px;line-height:1.9;color:var(--ink);}
+  .hexagram-row{display:flex;align-items:baseline;gap:12px;}
+  .hexagram-row .field-label{margin-bottom:0;}
+  .hexagram-row .field-text{font-size:13px;color:var(--ink-light);}  /* 卦象注释：浅墨 */
 
-  .sub {
-    font-family: var(--mono); font-size: clamp(.75rem, 1.6vw, .95rem);
-    letter-spacing: .2em; color: var(--muted);
-    display: flex; flex-wrap: wrap; gap: .6rem 1.4rem; align-items: center;
-  }
-  .sub .sep { color: var(--lime); }
-  .sub b { color: var(--ink); font-weight: 500; }
+  .advice{list-style:none;text-align:left;}
+  .advice li{font-family:var(--font-body);font-size:15px;line-height:1.9;color:var(--ink-light);margin:8px 0;}
+  .advice .cat{font-family:var(--font-title);color:var(--ink);margin-right:8px;}
+  .advice .dot{color:var(--ink-light);margin-right:8px;}
 
-  .scroll-hint {
-    position: absolute; bottom: 2.2rem; left: 2rem; z-index: 2;
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .3em; color: var(--muted);
-    display: flex; align-items: center; gap: .8rem;
+  .actions{margin-top:48px;display:flex;gap:40px;justify-content:center;}
+  .ghost{
+    background:none;border:none;font-family:var(--font-title);font-size:16px;letter-spacing:0.06em;
+    color:var(--ink-light);border-bottom:1px solid var(--line);padding:4px 2px;cursor:pointer;
+    transition:color .35s ease,border-color .35s ease;
   }
-  .scroll-hint::after {
-    content: ""; width: 60px; height: 1px; background: var(--line);
-    animation: hint 1.6s ease-in-out infinite;
-  }
-  @keyframes hint { 0%,100% { transform: scaleX(1); transform-origin: left;} 50% { transform: scaleX(.3); transform-origin: left;} }
+  .ghost:hover{color:var(--seal);border-color:var(--seal);}  /* 幽灵按钮 hover 转朱印红 */
 
-  /* ---------- 滚动字幕 ---------- */
-  .marquee {
-    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
-    overflow: hidden; padding: 1.1rem 0; white-space: nowrap;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-            mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-  }
-  .marquee-track { display: inline-flex; animation: scroll 22s linear infinite; }
-  .marquee-track span {
-    font-family: var(--display); font-weight: 600; font-size: 1.6rem;
-    letter-spacing: .12em; text-transform: uppercase; padding-right: 2.4rem;
-  }
-  .marquee-track .star { color: var(--lime); }
-  @keyframes scroll { from { transform: translateX(0);} to { transform: translateX(-50%);} }
-
-  /* ---------- 关于 ---------- */
-  .about { padding: clamp(6rem, 14vh, 10rem) 2rem; position: relative; }
-  .section-tag {
-    font-family: var(--mono); font-size: .72rem; letter-spacing: .34em;
-    color: var(--muted); text-transform: uppercase; margin-bottom: 2.6rem;
-    display: flex; align-items: center; gap: .8rem;
-  }
-  .section-tag::before { content: ""; width: 26px; height: 1px; background: var(--lime); }
-
-  .statement { font-family: var(--display); font-weight: 600; max-width: 16em; }
-  .statement .line { overflow: hidden; display: block; }
-  .statement .line > span { display: inline-block; transform: translateY(115%); transition: transform 1s cubic-bezier(.19, 1, .22, 1); }
-  .statement .line.big { font-size: clamp(2.6rem, 8vw, 6.5rem); line-height: 1.05; }
-  .statement .line.mid { font-size: clamp(1.6rem, 5vw, 3.6rem); line-height: 1.15; color: var(--muted); margin-top: 1.2rem; }
-  .statement .line .hl { color: var(--lime); }
-  .statement .line .cyan { color: var(--cyan); }
-  .statement.in .line > span { transform: translateY(0); }
-
-  .note {
-    margin-top: 3rem; max-width: 30em;
-    color: var(--muted); font-size: clamp(.95rem, 2vw, 1.1rem); line-height: 1.9; font-weight: 500;
-  }
-  .note a { color: var(--ink); border-bottom: 1px solid var(--lime); transition: color .25s, border-color .25s; }
-  .note a:hover { color: var(--lime); }
-
-  /* ---------- 链接卡片 ---------- */
-  .links { padding: 0 2rem clamp(6rem, 14vh, 10rem); }
-  .grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.2rem; max-width: 1100px;
-  }
-  .card {
-    position: relative; overflow: hidden;
-    border: 1px solid var(--line); border-radius: 18px;
-    padding: 2.2rem; min-height: 200px;
-    display: flex; flex-direction: column; justify-content: space-between;
-    background: rgba(255,255,255,.02);
-    transform: perspective(900px) rotateX(0) rotateY(0);
-    transition: border-color .3s, background .3s;
-    will-change: transform;
-  }
-  .card::before {
-    content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .35s;
-    background: radial-gradient(480px circle at var(--mx, 50%) var(--my, 50%), rgba(217,255,63,.14), transparent 55%);
-  }
-  .card:hover { border-color: rgba(217,255,63,.5); background: rgba(255,255,255,.04); }
-  .card:hover::before { opacity: 1; }
-  .card .top { font-family: var(--mono); font-size: .7rem; letter-spacing: .24em; color: var(--muted); text-transform: uppercase; }
-  .card .bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
-  .card h3 { font-family: var(--display); font-weight: 600; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: .01em; }
-  .card .handle { font-family: var(--mono); font-size: .8rem; color: var(--muted); margin-top: .4rem; }
-  .card .arrow {
-    width: 52px; height: 52px; flex: none;
-    border: 1px solid var(--line); border-radius: 50%;
-    display: grid; place-items: center;
-    font-size: 1.2rem; color: var(--ink);
-    transition: background .3s, color .3s, border-color .3s, transform .3s;
-  }
-  .card:hover .arrow { background: var(--lime); color: var(--bg); border-color: var(--lime); transform: rotate(45deg); }
-  .card.c-cyan:hover { border-color: rgba(85,214,255,.5); }
-  .card.c-cyan:hover .arrow { background: var(--cyan); border-color: var(--cyan); color: var(--bg); }
-
-  /* ---------- 吕祖灵签 ---------- */
-  .oracle { padding: clamp(6rem, 14vh, 10rem) 2rem; position: relative; border-top: 1px solid var(--line); scroll-margin-top: 70px; }
-  .oracle-head { display: flex; align-items: baseline; gap: 1.2rem; flex-wrap: wrap; }
-  .oracle-title { font-family: var(--display); font-weight: 700; font-size: clamp(2.4rem, 7vw, 5rem); line-height: 1; }
-  .oracle-sub { font-family: var(--mono); font-size: .75rem; letter-spacing: .24em; color: var(--muted); text-transform: uppercase; }
-  .oracle-stage { display: flex; align-items: center; gap: clamp(2rem, 6vw, 5rem); flex-wrap: wrap; margin-top: 2.6rem; }
-
-  .jar { width: clamp(140px, 22vw, 220px); flex: none; transform-origin: bottom center; }
-  .jar.shaking { animation: shake .5s cubic-bezier(.36,.07,.19,.97) 3; }
-  @keyframes shake {
-    0%, 100% { transform: rotate(0); }
-    20% { transform: rotate(-9deg) translateX(-4px); }
-    40% { transform: rotate(8deg) translateX(4px); }
-    60% { transform: rotate(-6deg) translateX(-3px); }
-    80% { transform: rotate(5deg) translateX(2px); }
-  }
-  .jar svg { width: 100%; height: auto; display: block; overflow: visible; }
-  .jar .stick-lime { stroke: var(--lime); }
-
-  .draw-zone { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
-  .draw-date { font-family: var(--mono); font-size: .72rem; letter-spacing: .2em; color: var(--muted); }
-  .draw-btn {
-    font-family: var(--display); font-weight: 600; font-size: 1.1rem; letter-spacing: .14em;
-    color: var(--bg); background: var(--lime); border: 0; border-radius: 999px;
-    padding: 1rem 2.6rem; cursor: pointer;
-    transition: transform .2s, box-shadow .2s, opacity .2s;
-    box-shadow: 0 0 40px rgba(217, 255, 63, .25);
-  }
-  .draw-btn:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(217, 255, 63, .45); }
-  .draw-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
-  .draw-state { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; color: var(--muted); min-height: 1.2em; }
-
-  /* 结果卡 */
-  .result { margin-top: 3rem; }
-  .result-card {
-    max-width: 760px; border: 1px solid var(--line); border-radius: 20px;
-    background: linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
-    padding: 2.2rem 2.4rem 2rem; position: relative; overflow: hidden;
-    opacity: 0; transform: translateY(30px) scale(.97);
-    transition: opacity .6s ease, transform .6s cubic-bezier(.19, 1, .22, 1);
-  }
-  .result-card.in { opacity: 1; transform: none; }
-  .result-card::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, var(--lime), var(--cyan));
-  }
-  .result-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-  .result-no { font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 4vw, 2.4rem); }
-  .badge {
-    font-family: var(--mono); font-size: .78rem; letter-spacing: .18em;
-    padding: .45rem 1rem; border-radius: 999px; border: 1px solid currentColor;
-  }
-  .badge[data-g="上上"] { color: var(--lime); }
-  .badge[data-g="上吉"] { color: var(--cyan); }
-  .badge[data-g="中吉"] { color: #FFD166; }
-  .badge[data-g="中平"] { color: var(--muted); }
-  .badge[data-g="下下"] { color: #FF6B6B; }
-  .badge[data-g="下吉"] { color: #FFA45C; }
-  .badge[data-g="中下"] { color: #FFA45C; }
-  .result-title { font-family: var(--serif-sc); font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 1.2rem 0 .9rem; letter-spacing: .12em; }
-  .result-poem {
-    font-family: var(--serif-sc); font-weight: 600;
-    font-size: clamp(1.15rem, 3vw, 1.5rem); line-height: 2; letter-spacing: .08em;
-    white-space: pre-line; color: var(--ink);
-  }
-  .result-meaning { margin-top: 1.2rem; color: var(--muted); line-height: 1.9; font-size: .98rem; white-space: pre-line; }
-  .result-luck { margin-top: 1.4rem; display: grid; gap: .5rem; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
-  .luck-chip {
-    border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem;
-    font-size: .85rem; line-height: 1.6; color: var(--muted); background: rgba(255,255,255,.02);
-  }
-  .luck-chip b { color: var(--lime); font-weight: 700; margin-right: .4em; font-family: var(--mono); font-size: .78rem; letter-spacing: .08em; }
-  .result-foot { margin-top: 1.6rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
-  .hidden { display: none !important; }
-
-  /* ---------- 页脚 ---------- */
-  footer { border-top: 1px solid var(--line); position: relative; overflow: hidden; }
-  .watermark {
-    font-family: var(--display); font-weight: 700;
-    font-size: clamp(4rem, 16vw, 13rem); line-height: 1;
-    color: transparent; -webkit-text-stroke: 1px rgba(244,241,234,.16);
-    text-align: center; padding: 2.4rem 0 0;
-    user-select: none; pointer-events: none;
-  }
-  .foot-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 1.4rem 2rem 2rem;
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .14em;
-    color: var(--muted); text-transform: uppercase;
-  }
-  .to-top {
-    display: inline-flex; align-items: center; gap: .5rem; color: var(--ink);
-    transition: color .25s; cursor: pointer; border: 0; background: none;
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
-  }
-  .to-top:hover { color: var(--lime); }
-
-  /* ---------- 入场 ---------- */
-  .rv { opacity: 0; transform: translateY(36px); transition: opacity .9s ease, transform .9s cubic-bezier(.19, 1, .22, 1); }
-  .rv.in { opacity: 1; transform: none; }
-
-  @media (prefers-reduced-motion: reduce) {
-    .rv, .statement .line > span { transition: none; opacity: 1; transform: none; }
-    .marquee-track, .blob, .clock .dot, .name .o, .scroll-hint::after { animation: none; }
-    .cursor-dot, .cursor-ring { display: none; }
+  /* ============ 键盘可达性：focus-visible ============ */
+  .btn-shake:focus-visible,.ghost:focus-visible{
+    outline:1px solid var(--seal);outline-offset:2px;
   }
 
-  @media (max-width: 640px) {
-    .topbar { padding: 1.1rem 1.3rem; }
-    .hero, .about, .links, .oracle { padding-left: 1.3rem; padding-right: 1.3rem; }
-    .result-card { padding: 1.6rem 1.4rem 1.4rem; }
-    .scroll-hint { left: 1.3rem; }
-    .foot-row { flex-direction: column; gap: .8rem; text-align: center; }
-    .clock .tz { display: none; }
+  /* ============ 诚实声明（角落注释） ============ */
+  .disclaimer{
+    position:fixed;right:16px;bottom:12px;
+    font-family:var(--font-body);font-size:13px;letter-spacing:0.02em;color:var(--ink-light);
+  }
+
+  /* ============ 响应式 ≤640px ============ */
+  @media (max-width:640px){
+    .tube-svg{width:128px;height:192px;}
+    .wordmark{font-size:24px;}
+    .guide{font-size:14px;margin-bottom:56px;}
+    .sign-title{font-size:24px;}
+    .poem{font-size:18px;}
+    .field-text,.advice li{font-size:14px;}
+    .sign-level{font-size:18px;}
+    .actions{gap:28px;flex-wrap:wrap;}
+    .disclaimer{font-size:12px;right:10px;bottom:8px;}
+  }
+
+  /* ============ 前庭敏感用户降级：关闭所有位移动画 ============ */
+  @media (prefers-reduced-motion: reduce){
+    .state.is-active{animation:none;}
+    .tube.shaking{animation:none;}
+    .falling-stick.drop{animation:none;}
   }
 </style>
 </head>
 <body>
 
-<div class="grain"></div>
-<div class="cursor-dot"></div>
-<div class="cursor-ring"></div>
+  <!-- ============ 态A 首页（摇签入口） ============ -->
+  <section id="state-home" class="state is-active" aria-label="首页">
+    <div class="inner home-inner">
+      <h1 class="wordmark">吕祖灵签</h1>
+      <p class="guide">心诚则灵，默念所问，再求一签</p>
+      <div class="tube-wrap">
+        <svg class="tube-svg" viewBox="0 0 200 300" role="img" aria-label="签筒">
+          <g class="tube">
+            <g stroke="#8A8A8A" stroke-width="2" stroke-linecap="round" fill="none">
+              <line x1="86" y1="120" x2="74" y2="46"/>
+              <line x1="93" y1="120" x2="88" y2="30"/>
+              <line x1="100" y1="120" x2="100" y2="20"/>
+              <line x1="107" y1="120" x2="112" y2="30"/>
+              <line x1="114" y1="120" x2="126" y2="46"/>
+              <line x1="80" y1="120" x2="68" y2="62"/>
+              <line x1="120" y1="120" x2="132" y2="62"/>
+            </g>
+            <g fill="#8A8A8A">
+              <circle cx="74" cy="46" r="2.4"/><circle cx="88" cy="30" r="2.4"/>
+              <circle cx="100" cy="20" r="2.4"/><circle cx="112" cy="30" r="2.4"/>
+              <circle cx="126" cy="46" r="2.4"/><circle cx="68" cy="62" r="2.4"/>
+              <circle cx="132" cy="62" r="2.4"/>
+            </g>
+            <g stroke="#2B2B2B" stroke-width="2" fill="none" stroke-linejoin="round">
+              <path d="M54 120 C 56 175 58 225 62 252"/>
+              <path d="M146 120 C 144 175 142 225 138 252"/>
+              <path d="M62 252 Q 100 270 138 252"/>
+              <ellipse cx="100" cy="120" rx="46" ry="12"/>
+            </g>
+            <path d="M58 121 Q 100 133 142 121" stroke="#8A8A8A" stroke-width="1" fill="none"/>
+          </g>
+        </svg>
+      </div>
+      <button class="btn-shake" id="btn-shake">摇 签</button>
+    </div>
+  </section>
 
-<div class="topbar">
-  <span class="brand">LONE<span style="color:var(--lime)">®</span>&nbsp;/&nbsp;index</span>
-  <div class="right">
-    <span class="clock"><span class="dot"></span><span id="clock">--:--:--</span><span class="tz">LOCAL</span></span>
-    <a href="#oracle" class="cursor-target">灵签 ✳</a>
-    <a href="https://x.com/MenglongF" target="_blank" rel="noopener noreferrer" class="cursor-target">Say hi ↗</a>
-  </div>
-</div>
+  <!-- ============ 态B 摇签动画（签筒晃动→落签） ============ -->
+  <section id="state-shake" class="state" aria-label="摇签">
+    <div class="inner shake-inner">
+      <p class="shake-hint">虔心一摇，签将至</p>
+      <div class="tube-wrap">
+        <svg class="tube-svg" viewBox="0 0 200 300" role="img" aria-label="签筒">
+          <g class="tube">
+            <g stroke="#8A8A8A" stroke-width="2" stroke-linecap="round" fill="none">
+              <line x1="86" y1="120" x2="74" y2="46"/>
+              <line x1="93" y1="120" x2="88" y2="30"/>
+              <line x1="100" y1="120" x2="100" y2="20"/>
+              <line x1="107" y1="120" x2="112" y2="30"/>
+              <line x1="114" y1="120" x2="126" y2="46"/>
+              <line x1="80" y1="120" x2="68" y2="62"/>
+              <line x1="120" y1="120" x2="132" y2="62"/>
+            </g>
+            <g fill="#8A8A8A">
+              <circle cx="74" cy="46" r="2.4"/><circle cx="88" cy="30" r="2.4"/>
+              <circle cx="100" cy="20" r="2.4"/><circle cx="112" cy="30" r="2.4"/>
+              <circle cx="126" cy="46" r="2.4"/><circle cx="68" cy="62" r="2.4"/>
+              <circle cx="132" cy="62" r="2.4"/>
+            </g>
+            <g stroke="#2B2B2B" stroke-width="2" fill="none" stroke-linejoin="round">
+              <path d="M54 120 C 56 175 58 225 62 252"/>
+              <path d="M146 120 C 144 175 142 225 138 252"/>
+              <path d="M62 252 Q 100 270 138 252"/>
+              <ellipse cx="100" cy="120" rx="46" ry="12"/>
+            </g>
+            <path d="M58 121 Q 100 133 142 121" stroke="#8A8A8A" stroke-width="1" fill="none"/>
+          </g>
+        </svg>
+        <!-- 落签：锚定筒口（top:40% 对应 viewBox 筒口 cy=120/300） -->
+        <svg class="falling-stick" viewBox="0 0 40 120" aria-hidden="true">
+          <line x1="20" y1="8" x2="20" y2="100" stroke="#2B2B2B" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="20" cy="8" r="2.6" fill="#2B2B2B"/>
+          <text x="20" y="116" text-anchor="middle" font-family="Kaiti SC,STKaiti,KaiTi,serif" font-size="12" fill="#6E6E6E">签</text>
+        </svg>
+      </div>
+    </div>
+  </section>
 
-<!-- HERO -->
-<section class="hero" id="top">
-  <div class="blob a"></div>
-  <div class="blob b"></div>
-  <div class="dots"></div>
-  <div class="hero-inner" id="heroInner">
-    <p class="overline rv">Independent Developer / 独立开发者</p>
-    <h1 class="name rv"><span>L</span><span class="o">O</span><span class="ne">NE</span></h1>
-    <p class="sub rv">
-      <b>独立开发者</b><span class="sep">✳</span><span>INDEPENDENT DEVELOPER</span><span class="sep">✳</span><span>BUILDING IN THE OPEN</span>
-    </p>
-  </div>
-  <div class="scroll-hint">SCROLL</div>
-</section>
+  <!-- ============ 态C 解签卡（单屏） ============ -->
+  <section id="state-result" class="state" aria-label="解签">
+    <div class="inner result-inner">
+      <p class="brand-mini">吕祖灵签 · 解签</p>
+      <header class="sign-head">
+        <div class="seal" id="r-seal">第一签</div>
+        <p class="sign-level" id="r-level">上上</p>
+        <p class="sign-title" id="r-title">「钟离十试」</p>
+      </header>
 
-<!-- MARQUEE -->
-<div class="marquee" aria-hidden="true">
-  <div class="marquee-track">
-    <span>LONE</span><span class="star">✳</span><span>独立开发者</span><span class="star">✳</span><span>BUILDING IN THE OPEN</span><span class="star">✳</span><span>MAKE THINGS</span><span class="star">✳</span>
-    <span>LONE</span><span class="star">✳</span><span>独立开发者</span><span class="star">✳</span><span>BUILDING IN THE OPEN</span><span class="star">✳</span><span>MAKE THINGS</span><span class="star">✳</span>
-  </div>
-</div>
+      <div class="poem-block">
+        <p class="poem" id="r-poem"></p>
+      </div>
 
-<!-- ABOUT -->
-<section class="about">
-  <p class="section-tag">About / 关于</p>
-  <div class="statement" id="statement">
-    <span class="line big"><span>你好，我是 <span class="hl">Lone</span>。</span></span>
-    <span class="line big"><span>一名<span class="cyan"> 独立开发者</span>。</span></span>
-    <span class="line mid"><span>认真生活，安静写码，在公开中构建。</span></span>
-  </div>
-  <p class="note rv">
-    想聊点什么？在 <a href="https://x.com/MenglongF" target="_blank" rel="noopener noreferrer">X (Twitter)</a> 上找我，或者看看下面的链接。更多作品正在路上，敬请期待。
-  </p>
-</section>
+      <div class="field">
+        <p class="field-label">解曰</p>
+        <p class="field-text" id="r-explain"></p>
+      </div>
 
-<!-- LINKS -->
-<section class="links">
-  <p class="section-tag">Links / 链接</p>
-  <div class="grid">
-    <a class="card cursor-target" href="https://x.com/MenglongF" target="_blank" rel="noopener noreferrer">
-      <span class="top">Social / 社交</span>
-      <div class="bottom">
-        <div>
-          <h3>X / Twitter</h3>
-          <div class="handle">@MenglongF</div>
+      <div class="field">
+        <div class="hexagram-row">
+          <span class="field-label">卦象</span>
+          <span class="field-text" id="r-hexagram"></span>
         </div>
-        <span class="arrow">↗</span>
       </div>
-    </a>
-    <a class="card c-cyan cursor-target" href="https://github.com/MenglongFan" target="_blank" rel="noopener noreferrer">
-      <span class="top">Code / 代码</span>
-      <div class="bottom">
-        <div>
-          <h3>GitHub</h3>
-          <div class="handle">@MenglongFan</div>
-        </div>
-        <span class="arrow">↗</span>
+
+      <div class="field">
+        <p class="field-label">决疑指引</p>
+        <ul class="advice" id="r-advice"></ul>
       </div>
-    </a>
-  </div>
 
-  <!-- 以后加作品/文章：
-  <div class="grid" style="margin-top:1.2rem"> ... 卡片同款 ... </div>
-  -->
-</section>
+      <nav class="actions">
+        <button class="ghost" id="btn-again">再求一签</button>
+        <button class="ghost" id="btn-share">分享此签</button>
+      </nav>
+      <!-- 屏幕阅读器状态播报区（分享反馈） -->
+      <span class="sr-only" aria-live="polite" id="share-status"></span>
+    </div>
+  </section>
 
-<!-- 吕祖灵签 -->
-<section class="oracle" id="oracle">
-  <div class="oracle-head">
-    <h2 class="oracle-title">吕祖灵签</h2>
-    <p class="oracle-sub">Lü Zu Oracle · 每日一签 · 心诚则灵</p>
-  </div>
-  <div class="oracle-stage">
-    <div class="jar" id="jar">
-      <svg viewBox="0 0 140 150" fill="none" aria-hidden="true">
-        <line x1="52" y1="16" x2="56" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
-        <line x1="66" y1="6" x2="70" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
-        <line class="stick-lime" x1="82" y1="10" x2="80" y2="80" stroke-width="4" stroke-linecap="round"/>
-        <line x1="96" y1="20" x2="92" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
-        <path d="M34 52 L106 52 L102 88 L38 88 Z" fill="#1B1B1F"/>
-        <path d="M30 78 C30 116 38 136 70 136 C102 136 110 116 110 78 C110 60 106 52 106 52 L110 78 C110 116 102 136 70 136 C38 136 30 116 30 78 Z" fill="url(#jarGrad)" stroke="#4A4A50" stroke-width="2.5"/>
-        <rect x="27" y="46" width="86" height="9" rx="4.5" fill="#26262C" stroke="#4A4A50" stroke-width="1.5"/>
-        <path d="M30 74 C52 82 88 82 110 74" stroke="#3A3A40" stroke-width="1.5"/>
-        <path d="M30 100 C52 108 88 108 110 100" stroke="#3A3A40" stroke-width="1.5"/>
-        <ellipse cx="70" cy="143" rx="46" ry="6" fill="#D9FF3F" opacity=".08"/>
-        <defs>
-          <linearGradient id="jarGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#232328"/>
-            <stop offset=".5" stop-color="#2E2E34"/>
-            <stop offset="1" stop-color="#1A1A1E"/>
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-    <div class="draw-zone">
-      <p class="draw-date" id="drawDate">—</p>
-      <button class="draw-btn cursor-target" id="drawBtn">摇 签</button>
-      <p class="draw-state" id="drawState"></p>
-    </div>
-  </div>
-  <div class="result hidden" id="result">
-    <div class="result-card" id="resultCard">
-      <div class="result-top">
-        <span class="result-no" id="resNo">第 — 签</span>
-        <span class="badge" id="resGrade" data-g="">—</span>
-      </div>
-      <h3 class="result-title" id="resTitle"></h3>
-      <p class="result-poem" id="resPoem"></p>
-      <p class="result-meaning" id="resMeaning"></p>
-      <div class="result-luck" id="resLuck"></div>
-      <p class="result-foot" id="resFoot">今日已抽 · 明日再来</p>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="watermark">LONE</div>
-  <div class="foot-row">
-    <span>© 2025 Lone · 独立开发者</span>
-    <button class="to-top cursor-target" onclick="scrollTopSmooth()">↑ Back to top</button>
-    <span>Made with care ✳</span>
-  </div>
-</footer>
+  <p class="disclaimer">签文据传统吕祖灵签百签整理（来源：算卜网、明师苑等），仅供文化参考与娱乐</p>
 
 <script src="data/luzu-signs.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 <script>
-  /* ---------- 实时时钟 ---------- */
-  const clockEl = document.getElementById('clock');
-  const p = n => String(n).padStart(2, '0');
-  setInterval(() => {
-    const d = new Date();
-    clockEl.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
-  }, 1000);
-
-  /* ---------- Lenis 平滑滚动 ---------- */
-  let lenis = null;
-  try {
-    lenis = new Lenis({ autoRaf: true, smoothWheel: true, lerp: 0.1 });
-  } catch (e) { /* 降级：CSS smooth 兜底 */ }
-  function scrollTopSmooth() {
-    if (lenis) lenis.scrollTo(0, { duration: 1.2 });
-    else window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  /* ---------- 入场 / 滚动揭示 ---------- */
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-    });
-  }, { threshold: 0.15 });
-  document.querySelectorAll('.rv, .statement').forEach(el => io.observe(el));
-
-  /* ---------- Hero 视差 ---------- */
-  const heroInner = document.getElementById('heroInner');
-  let ticking = false;
-  function onScroll() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => {
-      const y = window.scrollY;
-      const vh = window.innerHeight;
-      if (y < vh * 1.2) {
-        heroInner.style.transform =
-          'translateY(' + y * 0.22 + 'px) scale(' + Math.max(1 - y * 0.00045, 0.82) + ')';
-        heroInner.style.opacity = String(Math.max(1 - y / (vh * 0.9), 0));
+  /* ============ 签文数据：优先读取仓库 data/luzu-signs.js 的完整百签文库（window.LUZU_SIGNS）；缺失时退回内置示意签 ============ */
+  const SIGNS = [
+    {
+      id:"第一签", level:"上上", title:"钟离十试",
+      poem:["白云深处遇仙真，","一语点醒梦中人。","宝剑出匣光自满，","功名何用更劳神。"],
+      explain:"此签主谋望皆遂，困滞得伸。守正待时，自有贵人暗扶。凡事勿躁进，静则得所。",
+      hexagram:"乾为天（刚健中正，元亨利贞）",
+      advice:{
+        "婚姻":"良缘天定，宜迟不宜急。",
+        "求财":"财源渐丰，勿贪多务得。",
+        "事业":"前程似锦，守拙养明。",
+        "出行":"坦途可往，逢贵得助。",
+        "疾病":"心神不安，静养自痊。"
       }
-      ticking = false;
+    },
+    {
+      id:"第二签", level:"中平", title:"纯阳画鹤",
+      poem:["闲来挥笔写云烟，","墨落忽成飞上天。","莫道浮生如梦幻，","清名留与后人传。"],
+      explain:"此签谋事反复，先难后易。守分安命，不宜躁进。功名似有还无，得失随缘。",
+      hexagram:"巽为风（随风巽顺，谦逊得利）",
+      advice:{
+        "婚姻":"迟则成，急则变。",
+        "求财":"小有进益，莫求厚利。",
+        "事业":"渐入佳境，守静为宜。",
+        "出行":"平顺，宜择吉而行。",
+        "疾病":"调养可愈，忌劳神。"
+      }
+    },
+    {
+      id:"第三签", level:"下下", title:"迷途问津",
+      poem:["雾锁重山路渺茫，","孤舟夜半怯风浪。","分明指处犹难辨，","莫把歧途作故乡。"],
+      explain:"此签事多阻碍，谋望难成。防小人暗算，宜退守不宜进。守拙藏锋，可免其咎。",
+      hexagram:"坎为水（重重险陷，惟心亨通）",
+      advice:{
+        "婚姻":"多生波折，宜缓议。",
+        "求财":"耗散之兆，守财为上。",
+        "事业":"困顿不前，宜守不宜动。",
+        "出行":"阻碍多，暂宜中止。",
+        "疾病":"沉绵难起，宜早医。"
+      }
+    },
+    {
+      id:"第四签", level:"中平", title:"黄粱一梦",
+      poem:["邯郸道上遇真人，","一枕清风吹梦尘。","富贵功名皆幻影，","不如归去卧松云。"],
+      explain:"此签浮华易散，知足常乐。看破放下，反得安稳。名利如幻，莫为所迷。",
+      hexagram:"坤为地（厚德载物，安顺守成）",
+      advice:{
+        "婚姻":"平淡是福，莫生比较。",
+        "求财":"财如流水，来去由天。",
+        "事业":"安稳为上，勿好高骛远。",
+        "出行":"可往可还，随缘自在。",
+        "疾病":"心宽则愈，勿多忧疑。"
+      }
+    },
+    {
+      id:"第五签", level:"上上", title:"点石成金",
+      poem:["金丹一粒点凡胎，","困顿今朝豁然开。","莫道从前多蹉跌，","春风一夜满庭槐。"],
+      explain:"此签否极泰来，困者得舒。转机将至，把握时机。从前蹉跌，今朝尽雪。",
+      hexagram:"雷火丰（光明盛大，宜进取）",
+      advice:{
+        "婚姻":"佳偶天成，喜事临门。",
+        "求财":"时来运转，求必有益。",
+        "事业":"青云有路，奋发可期。",
+        "出行":"顺遂无阻，利于远行。",
+        "疾病":"沉疴得解，渐入康泰。"
+      }
+    }
+  ];
+
+  /* ============ 状态切换 ============ */
+  const home = document.getElementById('state-home');
+  const shake = document.getElementById('state-shake');
+  const result = document.getElementById('state-result');
+  let busy = false;
+
+  function showState(el){
+    [home,shake,result].forEach(s=>{ s.classList.remove('is-active'); });
+    el.classList.add('is-active');
+  }
+
+  // 真实百签文库（来自 data/luzu-signs.js）归一化为与内置示意签一致的结构
+  const REAL_SIGNS = (window.LUZU_SIGNS || []).map(s => ({
+    id: '第' + s.id + '签',
+    level: s.grade,
+    title: s.title,
+    poem: (s.poem || '').split('\n').filter(Boolean),
+    explain: s.meaning || '',
+    hexagram: '',
+    advice: Object.fromEntries(Object.entries(s.luck || {}).filter(([k,v]) => v && String(v).trim()))
+  }));
+  const SIGNS_ALL = REAL_SIGNS.length ? REAL_SIGNS : SIGNS;
+  document.querySelector('.disclaimer').textContent = REAL_SIGNS.length
+    ? '签文据传统吕祖灵签百签整理（来源：算卜网、明师苑等），仅供文化参考与娱乐'
+    : '示意签文 · 正式上线请接入完整吕祖灵签百签文库';
+  function pickSign(){ return SIGNS_ALL[Math.floor(Math.random()*SIGNS_ALL.length)]; }
+
+  function renderResult(s){
+    document.getElementById('r-seal').textContent = s.id;
+    document.getElementById('r-level').textContent = s.level;
+    document.getElementById('r-title').textContent = '「'+s.title+'」';
+    document.getElementById('r-poem').innerHTML = s.poem.map(l=>'<span>'+l+'</span>').join('');
+    document.getElementById('r-explain').textContent = s.explain;
+    const hexField = document.getElementById('r-hexagram');
+    const hexWrap = hexField.closest('.field');
+    if(s.hexagram && s.hexagram.trim()){ hexField.textContent = s.hexagram; hexWrap.style.display = ''; }
+    else { hexWrap.style.display = 'none'; }
+    document.getElementById('r-advice').innerHTML = Object.entries(s.advice).map(([k,v])=>
+      '<li><span class="cat">'+k+'</span><span class="dot">·</span><span class="txt">'+v+'</span></li>'
+    ).join('');
+  }
+
+  function startShake(){
+    if(busy) return;
+    busy = true;
+    const tube = shake.querySelector('.tube');
+    const stick = shake.querySelector('.falling-stick');
+
+    // P1 降级：前庭敏感用户跳过晃动/落签动画，直接揭示签文
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduceMotion){
+      renderResult(pickSign());
+      showState(result);
+      busy = false;
+      return;
+    }
+
+    showState(shake);
+    // 等淡入完成后，再起三晃动画，衔接更自然
+    setTimeout(()=>{
+      tube.classList.remove('shaking');
+      void tube.getBoundingClientRect();   // 强制回流以重启动画
+      tube.classList.add('shaking');
+    }, 480);
+
+    tube.addEventListener('animationend', function onEnd(e){
+      if(e.animationName !== 'shake') return;
+      tube.removeEventListener('animationend', onEnd);
+      stick.classList.add('drop');          // 落签
+      setTimeout(()=>{
+        renderResult(pickSign());
+        showState(result);
+        busy = false;
+      }, 720);
     });
   }
-  if (lenis) lenis.on('scroll', onScroll);
-  window.addEventListener('scroll', onScroll, { passive: true });
 
-  /* ---------- 自定义光标 ---------- */
-  if (window.matchMedia('(pointer: fine)').matches) {
-    const dot = document.querySelector('.cursor-dot');
-    const ring = document.querySelector('.cursor-ring');
-    let mx = -100, my = -100, rx = -100, ry = -100;
-    window.addEventListener('mousemove', e => {
-      mx = e.clientX; my = e.clientY;
-      dot.style.transform = 'translate(' + (mx - 4) + 'px,' + (my - 4) + 'px)';
-    });
-    (function ringLoop() {
-      rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16;
-      ring.style.transform = 'translate(' + (rx - 18) + 'px,' + (ry - 18) + 'px)';
-      requestAnimationFrame(ringLoop);
-    })();
-    document.querySelectorAll('a, button, .card').forEach(el => {
-      el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
-      el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
-    });
-  }
+  /* ============ 交互绑定 ============ */
+  document.getElementById('btn-shake').addEventListener('click', ()=>{ startShake(); enableMotion(); });
 
-  /* ---------- 卡片倾斜 + 辉光跟随 ---------- */
-  document.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width;
-      const py = (e.clientY - r.top) / r.height;
-      card.style.transform =
-        'perspective(900px) rotateX(' + ((0.5 - py) * 6) + 'deg) rotateY(' + ((px - 0.5) * 8) + 'deg)';
-      card.style.setProperty('--mx', (px * 100) + '%');
-      card.style.setProperty('--my', (py * 100) + '%');
-    });
-    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+  document.getElementById('btn-again').addEventListener('click', ()=>{
+    shake.querySelector('.tube').classList.remove('shaking');
+    shake.querySelector('.falling-stick').classList.remove('drop');
+    showState(home);
   });
 
-  /* ---------- 吕祖灵签：每日一签 ---------- */
-  (function () {
-    const SIGNS = window.LUZU_SIGNS || [];
-    const KEY = 'luzu-draw-v1';
-    const $ = id => document.getElementById(id);
-    const jar = $('jar'), btn = $('drawBtn'), stateEl = $('drawState'), dateEl = $('drawDate');
-    const resultBox = $('result'), card = $('resultCard');
-    let memDraw = null;
+  document.getElementById('btn-share').addEventListener('click', ()=>{
+    const b = document.getElementById('btn-share');
+    const seal = document.getElementById('r-seal').textContent;
+    const lvl  = document.getElementById('r-level').textContent;
+    const ttl  = document.getElementById('r-title').textContent;
+    const text = '【吕祖灵签】'+seal+' '+lvl+' '+ttl;
+    try{ if(navigator.clipboard) navigator.clipboard.writeText(text); }catch(e){}
+    const old = b.textContent; b.textContent = '已复制签文';
+    // P2③：同步播报给屏幕阅读器
+    const status = document.getElementById('share-status');
+    if(status) status.textContent = '已复制签文，可粘贴分享';
+    setTimeout(()=>{ b.textContent = old; if(status) status.textContent = ''; }, 1600);
+  });
 
-    const p2 = n => String(n).padStart(2, '0');
-    function todayStr(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
-
-    function readDraw() {
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) {
-          const o = JSON.parse(raw);
-          if (o.date === todayStr(new Date())) return o;
-        }
-      } catch (e) {}
-      return (memDraw && memDraw.date === todayStr(new Date())) ? memDraw : null;
+  /* ============ 摇一摇（设备动作，守卫式，可选增强） ============ */
+  let motionReady = false;
+  function enableMotion(){
+    if(motionReady) return;
+    const D = window.DeviceMotionEvent;
+    if(D && typeof D.requestPermission === 'function'){
+      D.requestPermission().then(p=>{
+        if(p==='granted'){ window.addEventListener('devicemotion', onMotion); motionReady = true; }
+      }).catch(()=>{});
+    } else if(D){
+      window.addEventListener('devicemotion', onMotion); motionReady = true;
     }
-    function writeDraw(id) {
-      const o = { date: todayStr(new Date()), id: id };
-      memDraw = o;
-      try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
-    }
-
-    function render(sign, animate) {
-      $('resNo').textContent = '第 ' + sign.id + ' 签';
-      const badge = $('resGrade');
-      badge.textContent = sign.grade || '—';
-      badge.dataset.g = sign.grade || '';
-      $('resTitle').textContent = sign.title || '';
-      $('resPoem').textContent = sign.poem || '';
-      $('resMeaning').textContent = sign.meaning ? ('解曰：' + sign.meaning) : '';
-      const luckBox = $('resLuck');
-      luckBox.innerHTML = '';
-      if (sign.luck) {
-        Object.entries(sign.luck).forEach(function (entry) {
-          const k = entry[0], v = entry[1];
-          if (v) {
-            const chip = document.createElement('div');
-            chip.className = 'luck-chip';
-            chip.innerHTML = '<b>' + k + '</b>' + v;
-            luckBox.appendChild(chip);
-          }
-        });
-      }
-      resultBox.classList.remove('hidden');
-      if (animate) {
-        card.classList.remove('in');
-        requestAnimationFrame(function () {
-          requestAnimationFrame(function () { card.classList.add('in'); });
-        });
-      } else {
-        card.classList.add('in');
-      }
-    }
-
-    function countdown() {
-      const now = new Date();
-      const mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      const s = Math.floor((mid - now) / 1000);
-      return Math.floor(s / 3600) + ':' + p2(Math.floor((s % 3600) / 60));
-    }
-
-    function setDrawnState(sign) {
-      btn.disabled = true;
-      stateEl.textContent = '今日已抽 · 明日再来（' + countdown() + '）';
-      render(sign, true);
-    }
-    setInterval(function () {
-      if (btn.disabled) stateEl.textContent = '今日已抽 · 明日再来（' + countdown() + '）';
-    }, 30000);
-
-    const drawn = readDraw();
-    if (drawn && SIGNS[drawn.id - 1]) {
-      setDrawnState(SIGNS[drawn.id - 1]);
-    } else {
-      dateEl.textContent = todayStr(new Date()) + ' · 心诚则灵';
-      btn.addEventListener('click', function () {
-        if (SIGNS.length === 0) { stateEl.textContent = '签文加载中，请稍后再试…'; return; }
-        btn.disabled = true;
-        stateEl.textContent = '正在摇签…';
-        jar.classList.remove('shaking');
-        void jar.offsetWidth;
-        jar.classList.add('shaking');
-        setTimeout(function () {
-          const sign = SIGNS[Math.floor(Math.random() * SIGNS.length)];
-          writeDraw(sign.id);
-          stateEl.textContent = '';
-          setDrawnState(sign);
-          setTimeout(function () {
-            resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 450);
-        }, 1600);
-      });
-    }
-  })();
+  }
+  let lastShake = 0;
+  function onMotion(e){
+    const a = e.accelerationIncludingGravity; if(!a) return;
+    const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+    const now = Date.now();
+    if(mag > 18 && now - lastShake > 1500 && !busy){ lastShake = now; startShake(); }
+  }
 </script>
 </body>
 </html>
