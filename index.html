@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://api.fontshare.com">
 <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700;900&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0A0A0B;
@@ -27,6 +27,7 @@
     --display: "Clash Display", "Arial Black", sans-serif;
     --sans: "Noto Sans SC", "PingFang SC", sans-serif;
     --mono: "JetBrains Mono", ui-monospace, monospace;
+    --serif-sc: "Noto Serif SC", "Songti SC", serif;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -238,6 +239,81 @@
   .card.c-cyan:hover { border-color: rgba(85,214,255,.5); }
   .card.c-cyan:hover .arrow { background: var(--cyan); border-color: var(--cyan); color: var(--bg); }
 
+  /* ---------- 吕祖灵签 ---------- */
+  .oracle { padding: clamp(6rem, 14vh, 10rem) 2rem; position: relative; border-top: 1px solid var(--line); scroll-margin-top: 70px; }
+  .oracle-head { display: flex; align-items: baseline; gap: 1.2rem; flex-wrap: wrap; }
+  .oracle-title { font-family: var(--display); font-weight: 700; font-size: clamp(2.4rem, 7vw, 5rem); line-height: 1; }
+  .oracle-sub { font-family: var(--mono); font-size: .75rem; letter-spacing: .24em; color: var(--muted); text-transform: uppercase; }
+  .oracle-stage { display: flex; align-items: center; gap: clamp(2rem, 6vw, 5rem); flex-wrap: wrap; margin-top: 2.6rem; }
+
+  .jar { width: clamp(140px, 22vw, 220px); flex: none; transform-origin: bottom center; }
+  .jar.shaking { animation: shake .5s cubic-bezier(.36,.07,.19,.97) 3; }
+  @keyframes shake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-9deg) translateX(-4px); }
+    40% { transform: rotate(8deg) translateX(4px); }
+    60% { transform: rotate(-6deg) translateX(-3px); }
+    80% { transform: rotate(5deg) translateX(2px); }
+  }
+  .jar svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .jar .stick-lime { stroke: var(--lime); }
+
+  .draw-zone { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .draw-date { font-family: var(--mono); font-size: .72rem; letter-spacing: .2em; color: var(--muted); }
+  .draw-btn {
+    font-family: var(--display); font-weight: 600; font-size: 1.1rem; letter-spacing: .14em;
+    color: var(--bg); background: var(--lime); border: 0; border-radius: 999px;
+    padding: 1rem 2.6rem; cursor: pointer;
+    transition: transform .2s, box-shadow .2s, opacity .2s;
+    box-shadow: 0 0 40px rgba(217, 255, 63, .25);
+  }
+  .draw-btn:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(217, 255, 63, .45); }
+  .draw-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+  .draw-state { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; color: var(--muted); min-height: 1.2em; }
+
+  /* 结果卡 */
+  .result { margin-top: 3rem; }
+  .result-card {
+    max-width: 760px; border: 1px solid var(--line); border-radius: 20px;
+    background: linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+    padding: 2.2rem 2.4rem 2rem; position: relative; overflow: hidden;
+    opacity: 0; transform: translateY(30px) scale(.97);
+    transition: opacity .6s ease, transform .6s cubic-bezier(.19, 1, .22, 1);
+  }
+  .result-card.in { opacity: 1; transform: none; }
+  .result-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--lime), var(--cyan));
+  }
+  .result-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .result-no { font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 4vw, 2.4rem); }
+  .badge {
+    font-family: var(--mono); font-size: .78rem; letter-spacing: .18em;
+    padding: .45rem 1rem; border-radius: 999px; border: 1px solid currentColor;
+  }
+  .badge[data-g="上上"] { color: var(--lime); }
+  .badge[data-g="上吉"] { color: var(--cyan); }
+  .badge[data-g="中吉"] { color: #FFD166; }
+  .badge[data-g="中平"] { color: var(--muted); }
+  .badge[data-g="下下"] { color: #FF6B6B; }
+  .badge[data-g="下吉"] { color: #FFA45C; }
+  .badge[data-g="中下"] { color: #FFA45C; }
+  .result-title { font-family: var(--serif-sc); font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 1.2rem 0 .9rem; letter-spacing: .12em; }
+  .result-poem {
+    font-family: var(--serif-sc); font-weight: 600;
+    font-size: clamp(1.15rem, 3vw, 1.5rem); line-height: 2; letter-spacing: .08em;
+    white-space: pre-line; color: var(--ink);
+  }
+  .result-meaning { margin-top: 1.2rem; color: var(--muted); line-height: 1.9; font-size: .98rem; white-space: pre-line; }
+  .result-luck { margin-top: 1.4rem; display: grid; gap: .5rem; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  .luck-chip {
+    border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem;
+    font-size: .85rem; line-height: 1.6; color: var(--muted); background: rgba(255,255,255,.02);
+  }
+  .luck-chip b { color: var(--lime); font-weight: 700; margin-right: .4em; font-family: var(--mono); font-size: .78rem; letter-spacing: .08em; }
+  .result-foot { margin-top: 1.6rem; font-family: var(--mono); font-size: .68rem; letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+  .hidden { display: none !important; }
+
   /* ---------- 页脚 ---------- */
   footer { border-top: 1px solid var(--line); position: relative; overflow: hidden; }
   .watermark {
@@ -272,7 +348,8 @@
 
   @media (max-width: 640px) {
     .topbar { padding: 1.1rem 1.3rem; }
-    .hero, .about, .links { padding-left: 1.3rem; padding-right: 1.3rem; }
+    .hero, .about, .links, .oracle { padding-left: 1.3rem; padding-right: 1.3rem; }
+    .result-card { padding: 1.6rem 1.4rem 1.4rem; }
     .scroll-hint { left: 1.3rem; }
     .foot-row { flex-direction: column; gap: .8rem; text-align: center; }
     .clock .tz { display: none; }
@@ -289,6 +366,7 @@
   <span class="brand">LONE<span style="color:var(--lime)">®</span>&nbsp;/&nbsp;index</span>
   <div class="right">
     <span class="clock"><span class="dot"></span><span id="clock">--:--:--</span><span class="tz">LOCAL</span></span>
+    <a href="#oracle" class="cursor-target">灵签 ✳</a>
     <a href="https://x.com/MenglongF" target="_blank" rel="noopener noreferrer" class="cursor-target">Say hi ↗</a>
   </div>
 </div>
@@ -360,6 +438,55 @@
   -->
 </section>
 
+<!-- 吕祖灵签 -->
+<section class="oracle" id="oracle">
+  <div class="oracle-head">
+    <h2 class="oracle-title">吕祖灵签</h2>
+    <p class="oracle-sub">Lü Zu Oracle · 每日一签 · 心诚则灵</p>
+  </div>
+  <div class="oracle-stage">
+    <div class="jar" id="jar">
+      <svg viewBox="0 0 140 150" fill="none" aria-hidden="true">
+        <line x1="52" y1="16" x2="56" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
+        <line x1="66" y1="6" x2="70" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
+        <line class="stick-lime" x1="82" y1="10" x2="80" y2="80" stroke-width="4" stroke-linecap="round"/>
+        <line x1="96" y1="20" x2="92" y2="80" stroke="#3A3A3E" stroke-width="4" stroke-linecap="round"/>
+        <path d="M34 52 L106 52 L102 88 L38 88 Z" fill="#1B1B1F"/>
+        <path d="M30 78 C30 116 38 136 70 136 C102 136 110 116 110 78 C110 60 106 52 106 52 L110 78 C110 116 102 136 70 136 C38 136 30 116 30 78 Z" fill="url(#jarGrad)" stroke="#4A4A50" stroke-width="2.5"/>
+        <rect x="27" y="46" width="86" height="9" rx="4.5" fill="#26262C" stroke="#4A4A50" stroke-width="1.5"/>
+        <path d="M30 74 C52 82 88 82 110 74" stroke="#3A3A40" stroke-width="1.5"/>
+        <path d="M30 100 C52 108 88 108 110 100" stroke="#3A3A40" stroke-width="1.5"/>
+        <ellipse cx="70" cy="143" rx="46" ry="6" fill="#D9FF3F" opacity=".08"/>
+        <defs>
+          <linearGradient id="jarGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#232328"/>
+            <stop offset=".5" stop-color="#2E2E34"/>
+            <stop offset="1" stop-color="#1A1A1E"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div class="draw-zone">
+      <p class="draw-date" id="drawDate">—</p>
+      <button class="draw-btn cursor-target" id="drawBtn">摇 签</button>
+      <p class="draw-state" id="drawState"></p>
+    </div>
+  </div>
+  <div class="result hidden" id="result">
+    <div class="result-card" id="resultCard">
+      <div class="result-top">
+        <span class="result-no" id="resNo">第 — 签</span>
+        <span class="badge" id="resGrade" data-g="">—</span>
+      </div>
+      <h3 class="result-title" id="resTitle"></h3>
+      <p class="result-poem" id="resPoem"></p>
+      <p class="result-meaning" id="resMeaning"></p>
+      <div class="result-luck" id="resLuck"></div>
+      <p class="result-foot" id="resFoot">今日已抽 · 明日再来</p>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="watermark">LONE</div>
   <div class="foot-row">
@@ -369,6 +496,7 @@
   </div>
 </footer>
 
+<script src="data/luzu-signs.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 <script>
   /* ---------- 实时时钟 ---------- */
@@ -450,6 +578,107 @@
     });
     card.addEventListener('mouseleave', () => { card.style.transform = ''; });
   });
+
+  /* ---------- 吕祖灵签：每日一签 ---------- */
+  (function () {
+    const SIGNS = window.LUZU_SIGNS || [];
+    const KEY = 'luzu-draw-v1';
+    const $ = id => document.getElementById(id);
+    const jar = $('jar'), btn = $('drawBtn'), stateEl = $('drawState'), dateEl = $('drawDate');
+    const resultBox = $('result'), card = $('resultCard');
+    let memDraw = null;
+
+    const p2 = n => String(n).padStart(2, '0');
+    function todayStr(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+
+    function readDraw() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) {
+          const o = JSON.parse(raw);
+          if (o.date === todayStr(new Date())) return o;
+        }
+      } catch (e) {}
+      return (memDraw && memDraw.date === todayStr(new Date())) ? memDraw : null;
+    }
+    function writeDraw(id) {
+      const o = { date: todayStr(new Date()), id: id };
+      memDraw = o;
+      try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+    }
+
+    function render(sign, animate) {
+      $('resNo').textContent = '第 ' + sign.id + ' 签';
+      const badge = $('resGrade');
+      badge.textContent = sign.grade || '—';
+      badge.dataset.g = sign.grade || '';
+      $('resTitle').textContent = sign.title || '';
+      $('resPoem').textContent = sign.poem || '';
+      $('resMeaning').textContent = sign.meaning ? ('解曰：' + sign.meaning) : '';
+      const luckBox = $('resLuck');
+      luckBox.innerHTML = '';
+      if (sign.luck) {
+        Object.entries(sign.luck).forEach(function (entry) {
+          const k = entry[0], v = entry[1];
+          if (v) {
+            const chip = document.createElement('div');
+            chip.className = 'luck-chip';
+            chip.innerHTML = '<b>' + k + '</b>' + v;
+            luckBox.appendChild(chip);
+          }
+        });
+      }
+      resultBox.classList.remove('hidden');
+      if (animate) {
+        card.classList.remove('in');
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { card.classList.add('in'); });
+        });
+      } else {
+        card.classList.add('in');
+      }
+    }
+
+    function countdown() {
+      const now = new Date();
+      const mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const s = Math.floor((mid - now) / 1000);
+      return Math.floor(s / 3600) + ':' + p2(Math.floor((s % 3600) / 60));
+    }
+
+    function setDrawnState(sign) {
+      btn.disabled = true;
+      stateEl.textContent = '今日已抽 · 明日再来（' + countdown() + '）';
+      render(sign, true);
+    }
+    setInterval(function () {
+      if (btn.disabled) stateEl.textContent = '今日已抽 · 明日再来（' + countdown() + '）';
+    }, 30000);
+
+    const drawn = readDraw();
+    if (drawn && SIGNS[drawn.id - 1]) {
+      setDrawnState(SIGNS[drawn.id - 1]);
+    } else {
+      dateEl.textContent = todayStr(new Date()) + ' · 心诚则灵';
+      btn.addEventListener('click', function () {
+        if (SIGNS.length === 0) { stateEl.textContent = '签文加载中，请稍后再试…'; return; }
+        btn.disabled = true;
+        stateEl.textContent = '正在摇签…';
+        jar.classList.remove('shaking');
+        void jar.offsetWidth;
+        jar.classList.add('shaking');
+        setTimeout(function () {
+          const sign = SIGNS[Math.floor(Math.random() * SIGNS.length)];
+          writeDraw(sign.id);
+          stateEl.textContent = '';
+          setDrawnState(sign);
+          setTimeout(function () {
+            resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 450);
+        }, 1600);
+      });
+    }
+  })();
 </script>
 </body>
 </html>
