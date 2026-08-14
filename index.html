@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lone — 独立开发者</title>
+<meta name="description" content="Lone，独立开发者。安静地构建、学习和分享。">
+<meta property="og:title" content="Lone — 独立开发者">
+<meta property="og:description" content="Lone，独立开发者。安静地构建、学习和分享。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://MenglongFan.github.io/">
+<meta name="theme-color" content="#F6F4EF">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23171512'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-style='italic' font-size='38' fill='%23F6F4EF' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Serif+SC:wght@200;300;400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F4EF;
+    --ink: #171512;
+    --muted: #8A857C;
+    --line: rgba(23, 21, 18, 0.14);
+    --accent: #E8501A;
+    --serif: "Instrument Serif", "Noto Serif SC", serif;
+    --sans: "Noto Serif SC", "Songti SC", serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* 纸张颗粒 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  }
+
+  ::selection { background: var(--accent); color: var(--paper); }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* 顶部工具行：左名字 / 右时钟 */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.6rem 2.2rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .brand { font-weight: 500; color: var(--ink); }
+  .clock { display: flex; align-items: center; gap: 0.5rem; }
+  .clock .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.8); }
+  }
+
+  /* 主视觉 */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem 4rem;
+    text-align: center;
+  }
+
+  .overline {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2.4rem;
+  }
+  .overline .slash { color: var(--accent); padding: 0 0.4em; }
+
+  .name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(4.5rem, 19vw, 16rem);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+  }
+  .name .o { color: var(--accent); }
+
+  .role {
+    margin-top: 2.2rem;
+    font-size: clamp(1rem, 2.6vw, 1.35rem);
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    font-weight: 300;
+  }
+  .role b { color: var(--ink); font-weight: 400; }
+
+  /* 链接区 */
+  .links {
+    margin-top: 3.2rem;
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+  }
+  .btn .arrow { transition: transform 0.25s ease; }
+  .btn:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--paper);
+    transform: translateY(-2px);
+  }
+  .btn:hover .arrow { transform: translate(3px, -3px); }
+
+  /* 入场动效 */
+  .reveal { opacity: 0; animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+  .reveal:nth-child(1) { animation-delay: 0.05s; }
+  .reveal:nth-child(2) { animation-delay: 0.18s; }
+  .reveal:nth-child(3) { animation-delay: 0.34s; }
+  .reveal:nth-child(4) { animation-delay: 0.5s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 底部滚动字幕带 */
+  .marquee {
+    border-top: 1px solid var(--line);
+    overflow: hidden;
+    padding: 1rem 0;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: scroll 26s linear infinite;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 1.05rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+  .marquee-track span { padding-right: 3rem; white-space: nowrap; }
+  .marquee-track .star { color: var(--accent); }
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  footer {
+    padding: 1.2rem 2.2rem 1.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { animation: none; opacity: 1; }
+    .marquee-track, .clock .dot { animation: none; }
+  }
+
+  @media (max-width: 560px) {
+    .topbar { padding: 1.1rem 1.3rem; }
+    footer { flex-direction: column; gap: 0.4rem; padding: 1rem 1.3rem 1.4rem; }
+    .clock { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">Lone / index</span>
+  <span class="clock">
+    <span class="dot"></span>
+    <span id="clock">--:--:--</span>
+    <span>LOCAL</span>
+  </span>
+</div>
+
+<main>
+  <p class="overline reveal">Independent Developer<span class="slash">✳</span>独立开发者</p>
+  <h1 class="name reveal">L<span class="o">o</span>ne</h1>
+  <p class="role reveal">独立开发者 · <b>Lone</b></p>
+
+  <div class="links reveal">
+    <a class="btn" href="https://x.com/MenglongF" target="_blank" rel="noopener noreferrer">
+      X / Twitter <span class="arrow">↗</span>
+    </a>
+  </div>
+
+  <!-- 以后想加作品 / 文章，在下面这个区块里放链接卡片即可：
+  <section style="margin-top:4rem;max-width:640px;text-align:left">
+    <h2 style="font-family:var(--mono);font-size:.75rem;letter-spacing:.2em;color:var(--muted);margin-bottom:1rem">WORKS / 作品</h2>
+    ...
+  </section>
+  -->
+</main>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track" id="marquee">
+    <span>Lone</span><span class="star">✳</span><span>独立开发者</span><span class="star">✳</span><span>Building in the open</span><span class="star">✳</span>
+    <span>Lone</span><span class="star">✳</span><span>独立开发者</span><span class="star">✳</span><span>Building in the open</span><span class="star">✳</span>
+  </div>
+</div>
+
+<footer>
+  <span>© 2025 Lone</span>
+  <span>MenglongFan.github.io</span>
+  <span>Made with care ✳</span>
+</footer>
+
+<script>
+  // 实时时钟
+  const clockEl = document.getElementById('clock');
+  function tick() {
+    const now = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    clockEl.textContent = p(now.getHours()) + ':' + p(now.getMinutes()) + ':' + p(now.getSeconds());
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>
