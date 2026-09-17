@@ -1,11 +1,12 @@
 name = "guozhan-scoring"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
+workers_dev = true
 
 [[d1_databases]]
 binding = "DB"
 database_name = "guozhan-scoring"
-database_id = "你的D1数据库ID"
+database_id = "43c60c6b-af0b-4a48-ae21-5592cc59a8cc"
 
 [vars]
 CORS_ORIGIN = "https://menglongfan.github.io"
