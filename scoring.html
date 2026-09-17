@@ -7,30 +7,38 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%231a1a2e'/><text x='16' y='23' font-size='16' text-anchor='middle' fill='%23c62828' font-family='serif' font-weight='bold'>战</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
   --ink:#1a1a2e;
   --ink-light:#16213e;
+  --ink-card:#1e1e3a;
   --paper:#f5e6c8;
   --paper-dim:rgba(245,230,200,0.85);
   --paper-mute:rgba(245,230,200,0.5);
-  --paper-faint:rgba(245,230,200,0.15);
+  --paper-faint:rgba(245,230,200,0.12);
+  --paper-ghost:rgba(245,230,200,0.06);
   --cinnabar:#c62828;
   --cinnabar-light:#e53935;
+  --cinnabar-glow:rgba(198,40,40,0.25);
   --bamboo:#2d5016;
   --bamboo-light:#4a7c2c;
   --gold:#d4a843;
-  --border:rgba(245,230,200,0.2);
+  --gold-light:#e8c558;
+  --border:rgba(245,230,200,0.15);
   --font-brush:"Ma Shan Zheng",cursive;
   --font-serif:"Noto Serif SC",serif;
+  --radius:10px;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg:0 8px 40px rgba(0,0,0,0.5);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:var(--ink);color:var(--paper);font-family:var(--font-serif);-webkit-font-smoothing:antialiased;min-height:100vh;}
 body{
   background:
-    radial-gradient(ellipse at 20% 10%, rgba(198,40,40,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 90%, rgba(45,80,22,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 10%, rgba(198,40,40,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(45,80,22,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(212,168,67,0.03) 0%, transparent 70%),
     var(--ink);
 }
 ::selection{background:var(--cinnabar);color:var(--paper);}
@@ -39,11 +47,32 @@ a{color:inherit;text-decoration:none;}
 /* 纹理覆盖层 */
 .texture{
   position:fixed;inset:0;z-index:1;pointer-events:none;
-  opacity:0.04;
+  opacity:0.03;
   background-image:
-    radial-gradient(circle at 25% 30%, rgba(245,230,200,0.3) 0.5px, transparent 1px),
-    radial-gradient(circle at 75% 60%, rgba(245,230,200,0.2) 0.5px, transparent 1px);
+    radial-gradient(circle at 25% 30%, rgba(245,230,200,0.4) 0.5px, transparent 1px),
+    radial-gradient(circle at 75% 60%, rgba(245,230,200,0.3) 0.5px, transparent 1px);
   background-size:8px 8px,12px 12px;
+}
+
+/* 水墨装饰 */
+.ink-corner{
+  position:fixed;z-index:0;pointer-events:none;
+  opacity:0.05;
+}
+.ink-corner.tl{top:0;left:0;width:240px;height:240px;
+  background:radial-gradient(circle at 0% 0%, var(--cinnabar) 0%, transparent 60%);
+}
+.ink-corner.br{bottom:0;right:0;width:280px;height:280px;
+  background:radial-gradient(circle at 100% 100%, var(--bamboo) 0%, transparent 60%);
+}
+.ink-splash{
+  position:fixed;z-index:0;pointer-events:none;
+  opacity:0.04;
+  width:180px;height:180px;
+  top:30%;right:-60px;
+  background:radial-gradient(circle, var(--gold) 0%, transparent 65%);
+  border-radius:50%;
+  filter:blur(20px);
 }
 
 /* 主容器 */
@@ -51,65 +80,101 @@ a{color:inherit;text-decoration:none;}
 
 /* 页头 */
 .header{
-  padding:24px 0 16px;text-align:center;
+  padding:28px 0 16px;text-align:center;
   border-bottom:1px solid var(--border);
-  margin-bottom:0;
+  position:relative;
+}
+.header::after{
+  content:'';position:absolute;bottom:-1px;left:25%;right:25%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--cinnabar), transparent);
+  opacity:0.5;
 }
 .header-title{
   font-family:var(--font-brush);
-  font-size:32px;color:var(--cinnabar);letter-spacing:0.1em;
-  text-shadow:0 0 20px rgba(198,40,40,0.3);
+  font-size:36px;color:var(--cinnabar);letter-spacing:0.15em;
+  text-shadow:0 0 30px rgba(198,40,40,0.4);
+  animation:fadeInDown .6s ease;
 }
 .header-sub{
-  font-size:12px;color:var(--paper-mute);letter-spacing:0.2em;
-  margin-top:4px;
+  font-size:11px;color:var(--paper-mute);letter-spacing:0.3em;
+  margin-top:6px;text-transform:uppercase;
 }
 .season-badge{
-  display:inline-block;margin-top:8px;
-  padding:4px 16px;
+  display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+  padding:5px 18px;
   border:1px solid var(--gold);
-  border-radius:4px;
+  border-radius:20px;
   font-size:13px;color:var(--gold);
   letter-spacing:0.05em;
+  background:rgba(212,168,67,0.05);
+  transition:all .3s;
 }
-.season-badge.inactive{border-color:var(--paper-mute);color:var(--paper-mute);}
+.season-badge.inactive{border-color:var(--paper-mute);color:var(--paper-mute);background:transparent;}
+.season-badge .dot{
+  width:6px;height:6px;border-radius:50%;background:var(--gold);
+  animation:pulse 2s ease infinite;
+}
+.season-badge.inactive .dot{background:var(--paper-mute);animation:none;}
 
 /* 排名榜 */
 .standings{
   flex:1;
-  padding:16px 0;
+  padding:8px 0;
 }
 .standings-empty{
-  text-align:center;padding:80px 0;
-  color:var(--paper-mute);font-size:15px;letter-spacing:0.1em;
+  text-align:center;padding:100px 0;
+  color:var(--paper-mute);font-size:14px;letter-spacing:0.1em;
+  animation:fadeIn .5s ease;
 }
 .standings-empty .big{
-  font-family:var(--font-brush);font-size:24px;color:var(--paper-dim);
-  margin-bottom:8px;
+  font-family:var(--font-brush);font-size:28px;color:var(--paper-dim);
+  margin-bottom:12px;
 }
+.standings-empty .icon{
+  font-size:48px;margin-bottom:16px;opacity:0.15;
+}
+
+/* 加载骨架 */
+.skeleton-row{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 12px;
+  border-bottom:1px solid var(--paper-faint);
+}
+.skeleton-bar{
+  background:var(--paper-ghost);
+  border-radius:4px;
+  animation:shimmer 1.5s ease infinite;
+}
+.skeleton-num{width:40px;height:28px;}
+.skeleton-name{flex:1;height:16px;}
+.skeleton-score{width:50px;height:24px;}
 
 /* 排名行 */
 .rank-row{
   display:flex;align-items:center;gap:12px;
-  padding:14px 12px;
+  padding:16px 12px;
   border-bottom:1px solid var(--paper-faint);
-  cursor:pointer;transition:background .2s;
+  cursor:pointer;transition:all .25s ease;
   position:relative;
+  animation:slideIn .4s ease backwards;
 }
-.rank-row:hover{background:var(--paper-faint);}
-.rank-row.expanded{background:var(--paper-faint);}
+.rank-row:hover{background:var(--paper-ghost);}
+.rank-row.expanded{background:var(--paper-ghost);}
+
+/* 前三名特殊样式 */
+.rank-row:nth-child(1) .rank-num{
+  color:var(--cinnabar);font-size:30px;
+  text-shadow:0 0 16px rgba(198,40,40,0.4);
+}
+.rank-row:nth-child(2) .rank-num{color:var(--paper-dim);font-size:26px;}
+.rank-row:nth-child(3) .rank-num{color:var(--bamboo-light);font-size:24px;}
 
 .rank-num{
   font-family:var(--font-brush);
   font-size:24px;width:40px;text-align:center;
   color:var(--gold);flex-shrink:0;
+  transition:all .25s;
 }
-.rank-row:first-child .rank-num{
-  color:var(--cinnabar);font-size:28px;
-  text-shadow:0 0 12px rgba(198,40,40,0.3);
-}
-.rank-row:nth-child(2) .rank-num{color:var(--paper-dim);}
-.rank-row:nth-child(3) .rank-num{color:var(--bamboo-light);}
 
 .rank-info{flex:1;min-width:0;}
 .rank-name{
@@ -117,32 +182,39 @@ a{color:inherit;text-decoration:none;}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .rank-meta{
-  font-size:11px;color:var(--paper-mute);margin-top:2px;
+  font-size:11px;color:var(--paper-mute);margin-top:3px;
   letter-spacing:0.05em;
 }
+.rank-meta .sep{margin:0 4px;opacity:0.5;}
+.rank-meta .survival{color:var(--gold);opacity:0.8;}
 
 .rank-score{
   font-family:var(--font-brush);
   font-size:28px;color:var(--cinnabar-light);
-  flex-shrink:0;width:50px;text-align:right;
+  flex-shrink:0;width:56px;text-align:right;
+  transition:all .25s;
 }
+.rank-row:hover .rank-score{transform:scale(1.08);}
+.rank-score .label{font-size:10px;color:var(--paper-mute);font-family:var(--font-serif);display:block;text-align:center;margin-top:-2px;}
 
 /* 展开明细 */
 .rank-detail{
-  display:none;
-  padding:8px 12px 16px 52px;
+  max-height:0;overflow:hidden;
+  padding:0 12px 0 52px;
   border-bottom:1px solid var(--paper-faint);
-  background:rgba(0,0,0,0.15);
+  background:rgba(0,0,0,0.2);
+  transition:max-height .35s ease,padding .35s ease;
 }
-.rank-detail.show{display:block;}
+.rank-detail.show{max-height:400px;padding:8px 12px 14px 52px;}
 .detail-row{
   display:flex;justify-content:space-between;align-items:center;
-  padding:6px 0;
+  padding:7px 0;
   font-size:12px;color:var(--paper-mute);
   border-bottom:1px dotted var(--paper-faint);
 }
 .detail-row:last-child{border-bottom:none;}
 .detail-row .survivor{color:var(--gold);}
+.detail-row .eliminated{color:var(--paper-mute);opacity:0.6;}
 .detail-row .score-val{color:var(--cinnabar-light);font-weight:700;}
 
 /* 浮动按钮组 */
@@ -153,155 +225,206 @@ a{color:inherit;text-decoration:none;}
 .fab{
   width:52px;height:52px;border-radius:50%;
   border:1px solid var(--border);
-  background:var(--ink-light);
+  background:var(--ink-card);
   color:var(--paper-dim);
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .25s;
+  cursor:pointer;transition:all .3s ease;
   font-size:20px;
-  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+  box-shadow:var(--shadow);
+  position:relative;
 }
 .fab:hover{
   border-color:var(--cinnabar);color:var(--cinnabar);
   transform:translateY(-2px);
-  box-shadow:0 6px 24px rgba(198,40,40,0.2);
+  box-shadow:0 6px 28px rgba(198,40,40,0.3);
 }
 .fab svg{width:22px;height:22px;}
 .fab-label{
   position:absolute;right:60px;top:50%;transform:translateY(-50%);
-  background:var(--ink-light);color:var(--paper-dim);
-  padding:4px 10px;border-radius:4px;font-size:11px;
+  background:var(--ink-card);color:var(--paper-dim);
+  padding:4px 12px;border-radius:4px;font-size:11px;
   white-space:nowrap;border:1px solid var(--border);
-  opacity:0;transition:opacity .2s;pointer-events:none;
+  opacity:0;transition:all .25s;pointer-events:none;
 }
-.fab:hover .fab-label{opacity:1;}
+.fab:hover .fab-label{opacity:1;right:64px;}
 
 /* 弹窗 */
 .overlay{
   position:fixed;inset:0;z-index:200;
-  background:rgba(0,0,0,0.7);
+  background:rgba(0,0,0,0.75);
+  backdrop-filter:blur(4px);
   display:none;align-items:center;justify-content:center;
   padding:16px;
 }
-.overlay.show{display:flex;}
+.overlay.show{display:flex;animation:fadeIn .25s ease;}
 .modal{
-  background:var(--ink-light);
+  background:var(--ink-card);
   border:1px solid var(--border);
-  border-radius:12px;
+  border-radius:var(--radius);
   width:100%;max-width:500px;max-height:85vh;
   display:flex;flex-direction:column;
   overflow:hidden;
-  box-shadow:0 8px 40px rgba(0,0,0,0.5);
+  box-shadow:var(--shadow-lg);
+  animation:slideUp .3s ease;
 }
 .modal-header{
   padding:16px 20px;
   border-bottom:1px solid var(--border);
   display:flex;justify-content:space-between;align-items:center;
+  background:linear-gradient(180deg, var(--paper-ghost), transparent);
 }
 .modal-title{
   font-family:var(--font-brush);font-size:20px;color:var(--cinnabar);
+  letter-spacing:0.05em;
 }
 .modal-close{
   background:none;border:none;color:var(--paper-mute);
   font-size:22px;cursor:pointer;padding:0 4px;
+  transition:color .2s;
 }
 .modal-close:hover{color:var(--paper);}
 .modal-body{
   flex:1;overflow-y:auto;
   padding:20px;
 }
+.modal-body::-webkit-scrollbar{width:4px;}
+.modal-body::-webkit-scrollbar-track{background:transparent;}
+.modal-body::-webkit-scrollbar-thumb{background:var(--paper-faint);border-radius:2px;}
 .modal-footer{
   padding:12px 20px;
   border-top:1px solid var(--border);
   display:flex;gap:10px;justify-content:flex-end;
+  background:var(--paper-ghost);
 }
 
 /* 表单元素 */
 .form-group{margin-bottom:16px;}
 .form-label{
-  display:block;font-size:13px;color:var(--paper-mute);
-  margin-bottom:6px;letter-spacing:0.05em;
+  display:block;font-size:12px;color:var(--paper-mute);
+  margin-bottom:6px;letter-spacing:0.08em;
+  text-transform:uppercase;
 }
 .form-input{
-  width:100%;padding:10px 12px;
+  width:100%;padding:10px 14px;
   background:var(--ink);border:1px solid var(--border);
-  border-radius:6px;color:var(--paper);font-size:14px;
+  border-radius:8px;color:var(--paper);font-size:14px;
   font-family:var(--font-serif);
+  transition:all .2s;
 }
-.form-input:focus{outline:none;border-color:var(--cinnabar);}
-.form-input::placeholder{color:var(--paper-mute);}
+.form-input:focus{outline:none;border-color:var(--cinnabar);box-shadow:0 0 0 3px rgba(198,40,40,0.15);}
+.form-input::placeholder{color:var(--paper-mute);opacity:0.6;}
 
 .btn{
-  padding:8px 20px;border-radius:6px;
-  font-family:var(--font-serif);font-size:14px;
+  padding:9px 22px;border-radius:8px;
+  font-family:var(--font-serif);font-size:14px;font-weight:700;
   cursor:pointer;border:1px solid var(--border);
   transition:all .2s;
+  display:inline-flex;align-items:center;gap:6px;
 }
 .btn-primary{
   background:var(--cinnabar);color:var(--paper);border-color:var(--cinnabar);
 }
-.btn-primary:hover{background:var(--cinnabar-light);}
-.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-primary:hover{background:var(--cinnabar-light);transform:translateY(-1px);box-shadow:0 4px 16px var(--cinnabar-glow);}
+.btn-primary:active{transform:translateY(0);}
+.btn-primary:disabled{opacity:0.35;cursor:not-allowed;transform:none;box-shadow:none;}
 .btn-ghost{
   background:transparent;color:var(--paper-mute);
 }
 .btn-ghost:hover{color:var(--paper);border-color:var(--paper-mute);}
+.btn-gold{
+  background:transparent;color:var(--gold);border-color:var(--gold);
+}
+.btn-gold:hover{background:var(--gold);color:var(--ink);}
 
 /* 玩家选择 */
+.player-pick-list{display:flex;flex-direction:column;gap:6px;}
 .player-pick{
-  display:flex;align-items:center;gap:8px;
-  padding:10px;border:1px solid var(--border);border-radius:6px;
-  margin-bottom:6px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;transition:all .2s;
+  background:var(--paper-ghost);
 }
-.player-pick:hover{border-color:var(--cinnabar);}
+.player-pick:hover{border-color:var(--cinnabar);background:rgba(198,40,40,0.06);}
 .player-pick.selected{
-  border-color:var(--cinnabar);background:rgba(198,40,40,0.1);
+  border-color:var(--cinnabar);background:rgba(198,40,40,0.12);
+  box-shadow:inset 0 0 0 1px var(--cinnabar);
 }
-.player-pick input{width:18px;height:18px;accent-color:var(--cinnabar);}
-.player-pick label{flex:1;cursor:pointer;font-size:14px;}
+.player-pick .check{
+  width:22px;height:22px;border-radius:6px;
+  border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .2s;
+}
+.player-pick.selected .check{
+  background:var(--cinnabar);border-color:var(--cinnabar);
+}
+.player-pick.selected .check svg{opacity:1;transform:scale(1);}
+.player-pick .check svg{opacity:0;transform:scale(0.5);transition:all .2s;}
+.player-pick label{flex:1;cursor:pointer;font-size:14px;font-weight:700;}
 .player-count{
+  display:flex;justify-content:space-between;align-items:center;
   text-align:center;font-size:12px;color:var(--paper-mute);
-  padding:8px 0;letter-spacing:0.1em;
+  padding:10px 0;letter-spacing:0.08em;
 }
 .player-count.warn{color:var(--cinnabar);}
+.player-count.ok{color:var(--bamboo-light);}
+.pick-actions{
+  display:flex;gap:8px;margin-bottom:8px;
+}
+.pick-actions button{
+  font-size:12px;padding:6px 14px;border-radius:6px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--paper-mute);cursor:pointer;transition:all .2s;
+}
+.pick-actions button:hover{color:var(--paper);border-color:var(--paper-mute);}
 
 /* 淘汰排序 */
 .sort-hint{
   font-size:12px;color:var(--paper-mute);
-  margin-bottom:12px;line-height:1.6;
+  margin-bottom:14px;line-height:1.7;
+  padding:10px 14px;
+  background:var(--paper-ghost);
+  border-radius:8px;
+  border-left:3px solid var(--gold);
 }
+.sort-hint b{color:var(--gold);}
 .sort-list{
   display:flex;flex-direction:column;gap:6px;
 }
 .sort-item{
   display:flex;align-items:center;gap:10px;
-  padding:10px;border:1px solid var(--border);border-radius:6px;
-  background:rgba(0,0,0,0.2);
-  transition:all .2s;
+  padding:12px 14px;border:1px solid var(--border);border-radius:8px;
+  background:var(--paper-ghost);
+  transition:all .25s;
+  animation:fadeIn .3s ease;
 }
 .sort-item.survivor{
   border-color:var(--gold);
   background:rgba(212,168,67,0.08);
 }
-.sort-item.dragging{opacity:0.5;}
+.sort-item.dragging{opacity:0.4;transform:scale(0.98);}
 .sort-handle{
   cursor:grab;color:var(--paper-mute);font-size:18px;
-  flex-shrink:0;padding:0 4px;
+  flex-shrink:0;padding:0 2px;
+  transition:color .2s;
 }
+.sort-handle:hover{color:var(--paper);}
 .sort-handle:active{cursor:grabbing;}
 .sort-rank{
-  font-family:var(--font-brush);font-size:18px;
-  width:28px;text-align:center;flex-shrink:0;
+  font-family:var(--font-brush);font-size:20px;
+  width:30px;text-align:center;flex-shrink:0;
   color:var(--gold);
 }
-.sort-name{flex:1;font-size:14px;}
+.sort-item.survivor .sort-rank{color:var(--gold-light);}
+.sort-name{flex:1;font-size:14px;font-weight:700;}
 .sort-score{
-  font-family:var(--font-brush);font-size:20px;
-  color:var(--cinnabar-light);width:36px;text-align:right;flex-shrink:0;
+  font-family:var(--font-brush);font-size:22px;
+  color:var(--cinnabar-light);width:40px;text-align:right;flex-shrink:0;
 }
 .sort-toggle{
-  width:28px;height:28px;border-radius:50%;
+  width:32px;height:32px;border-radius:8px;
   border:1px solid var(--border);background:transparent;
-  color:var(--paper-mute);font-size:14px;cursor:pointer;
+  color:var(--paper-mute);font-size:13px;font-weight:700;cursor:pointer;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
   transition:all .2s;
 }
@@ -310,106 +433,119 @@ a{color:inherit;text-decoration:none;}
 }
 
 .score-preview{
-  margin-top:12px;padding:12px;
-  background:rgba(0,0,0,0.2);border-radius:6px;
+  margin-top:16px;padding:14px;
+  background:rgba(0,0,0,0.25);border-radius:8px;
   border:1px solid var(--paper-faint);
 }
 .score-preview-title{
   font-size:12px;color:var(--paper-mute);
-  margin-bottom:8px;letter-spacing:0.1em;
+  margin-bottom:10px;letter-spacing:0.1em;
+  display:flex;justify-content:space-between;align-items:center;
 }
+.score-preview-title .top-score{color:var(--gold);font-weight:700;}
 .score-preview-grid{
-  display:flex;flex-wrap:wrap;gap:8px;
+  display:flex;flex-wrap:wrap;gap:6px;
 }
 .score-chip{
-  padding:4px 10px;border-radius:4px;
-  font-size:12px;
+  padding:5px 12px;border-radius:6px;
+  font-size:12px;font-weight:700;
   background:var(--paper-faint);
+  transition:all .2s;
 }
 .score-chip.survivor{
-  background:rgba(212,168,67,0.15);color:var(--gold);
+  background:rgba(212,168,67,0.15);color:var(--gold-light);
+  border:1px solid rgba(212,168,67,0.3);
 }
-.score-chip .val{color:var(--cinnabar-light);font-weight:700;margin-left:4px;}
+.score-chip .val{color:var(--cinnabar-light);margin-left:6px;}
 
 /* 花名册列表 */
 .roster-item{
   display:flex;align-items:center;gap:8px;
-  padding:10px;border:1px solid var(--border);border-radius:6px;
+  padding:10px 14px;border:1px solid var(--border);border-radius:8px;
   margin-bottom:6px;
+  background:var(--paper-ghost);
+  transition:all .2s;
 }
+.roster-item:hover{border-color:var(--paper-mute);}
 .roster-item input{
   flex:1;background:transparent;border:none;color:var(--paper);
-  font-size:14px;font-family:var(--font-serif);
+  font-size:14px;font-weight:700;font-family:var(--font-serif);
+  padding:4px 0;
 }
 .roster-item input:focus{outline:none;}
 .roster-del{
-  width:28px;height:28px;border-radius:4px;
+  width:30px;height:30px;border-radius:6px;
   border:1px solid var(--border);background:transparent;
   color:var(--paper-mute);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
 }
-.roster-del:hover{color:var(--cinnabar);border-color:var(--cinnabar);}
+.roster-del:hover{color:var(--cinnabar);border-color:var(--cinnabar);background:rgba(198,40,40,0.1);}
 
 /* 赛季列表 */
 .season-item{
   display:flex;justify-content:space-between;align-items:center;
-  padding:12px;border:1px solid var(--border);border-radius:6px;
+  padding:14px;border:1px solid var(--border);border-radius:8px;
   margin-bottom:6px;
+  background:var(--paper-ghost);
+  transition:all .2s;
 }
-.season-item.active{border-color:var(--gold);}
+.season-item.active{border-color:var(--gold);background:rgba(212,168,67,0.06);}
 .season-item .s-name{font-size:14px;font-weight:700;}
-.season-item .s-meta{font-size:11px;color:var(--paper-mute);margin-top:2px;}
-.season-item .s-matches{font-size:12px;color:var(--gold);}
-.season-item button{
-  padding:4px 12px;font-size:12px;border-radius:4px;
+.season-item .s-meta{font-size:11px;color:var(--paper-mute);margin-top:3px;}
+.season-item .s-matches{font-size:12px;color:var(--gold);font-weight:700;}
+.season-item .s-actions{display:flex;gap:6px;}
+.season-item .s-btn{
+  padding:5px 14px;font-size:12px;border-radius:6px;
   border:1px solid var(--cinnabar);background:transparent;
-  color:var(--cinnabar);cursor:pointer;
+  color:var(--cinnabar);cursor:pointer;transition:all .2s;font-weight:700;
 }
-.season-item button:hover{background:var(--cinnabar);color:var(--paper);}
+.season-item .s-btn:hover{background:var(--cinnabar);color:var(--paper);}
+.season-item .s-btn.gold{border-color:var(--gold);color:var(--gold);}
+.season-item .s-btn.gold:hover{background:var(--gold);color:var(--ink);}
 
 /* Toast */
 .toast{
   position:fixed;top:20px;left:50%;transform:translateX(-50%);
-  z-index:300;padding:10px 24px;border-radius:6px;
-  background:var(--ink-light);border:1px solid var(--border);
-  color:var(--paper);font-size:14px;
-  opacity:0;transition:opacity .3s,top .3s;
+  z-index:300;padding:12px 28px;border-radius:8px;
+  background:var(--ink-card);border:1px solid var(--border);
+  color:var(--paper);font-size:14px;font-weight:700;
+  opacity:0;transition:all .35s ease;
   top:-60px;
+  box-shadow:var(--shadow);
 }
 .toast.show{opacity:1;top:20px;}
-.toast.error{border-color:var(--cinnabar);color:var(--cinnabar);}
+.toast.error{border-color:var(--cinnabar);color:var(--cinnabar-light);}
 .toast.success{border-color:var(--bamboo-light);color:var(--bamboo-light);}
 
 /* 页脚 */
 .footer{
   padding:16px 0;text-align:center;
   border-top:1px solid var(--border);
-  font-size:11px;color:var(--paper-mute);letter-spacing:0.1em;
+  font-size:11px;color:var(--paper-mute);letter-spacing:0.15em;
 }
 
 /* 响应式 */
 @media(min-width:640px){
-  .header-title{font-size:40px;}
+  .header-title{font-size:42px;}
   .fab-group{right:24px;bottom:24px;}
   .fab{width:56px;height:56px;}
+  .fab svg{width:24px;height:24px;}
 }
 
-/* 水墨装饰 */
-.ink-corner{
-  position:fixed;z-index:0;pointer-events:none;
-  opacity:0.06;
-}
-.ink-corner.tl{top:0;left:0;width:200px;height:200px;
-  background:radial-gradient(circle at 0% 0%, var(--cinnabar) 0%, transparent 60%);
-}
-.ink-corner.br{bottom:0;right:0;width:240px;height:240px;
-  background:radial-gradient(circle at 100% 100%, var(--bamboo) 0%, transparent 60%);
-}
+/* 动画 */
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px) scale(0.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes shimmer{0%{opacity:0.3;}50%{opacity:0.6;}100%{opacity:0.3;}}
+@keyframes pulse{0%,100%{opacity:0.6;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
 </style>
 </head>
 <body>
   <div class="ink-corner tl"></div>
   <div class="ink-corner br"></div>
+  <div class="ink-splash"></div>
   <div class="texture"></div>
 
   <div class="app">
@@ -417,7 +553,7 @@ a{color:inherit;text-decoration:none;}
     <div class="header">
       <div class="header-title">国战积分</div>
       <div class="header-sub">三国杀国战积分系统</div>
-      <div class="season-badge" id="seasonBadge">加载中...</div>
+      <div class="season-badge" id="seasonBadge"><span class="dot"></span>加载中...</div>
     </div>
 
     <!-- 排名榜 -->
@@ -431,12 +567,15 @@ a{color:inherit;text-decoration:none;}
   <div class="fab-group">
     <button class="fab" onclick="openModal('match')" title="录入成绩">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="fab-label">录入成绩</span>
     </button>
     <button class="fab" onclick="openModal('roster')" title="花名册">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg>
+      <span class="fab-label">花名册</span>
     </button>
     <button class="fab" onclick="openModal('season')" title="赛季管理">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span class="fab-label">赛季管理</span>
     </button>
   </div>
 
@@ -457,7 +596,6 @@ a{color:inherit;text-decoration:none;}
 
 <script>
 // ============ 配置 ============
-// 部署后替换为你的 Worker URL
 const API_BASE = 'https://guozhan-scoring.menglongfan.workers.dev';
 
 // ============ 状态 ============
@@ -484,13 +622,53 @@ async function api(path, opts={}) {
   return data;
 }
 
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// 获取 ISO 周数
+function getISOWeek(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+// 自动生成赛季名：年份+第N周
+function getDefaultSeasonName() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const week = getISOWeek(now);
+  return `${year}年第${week}周`;
+}
+
 // ============ 排名榜 ============
 async function loadStandings(seasonId) {
-  const url = seasonId ? `/api/standings?season_id=${seasonId}` : '/api/standings';
-  const data = await api(url);
-  currentSeason = data.season;
-  standingsData = data.standings || [];
-  renderStandings();
+  showSkeleton();
+  try {
+    const url = seasonId ? `/api/standings?season_id=${seasonId}` : '/api/standings';
+    const data = await api(url);
+    currentSeason = data.season;
+    standingsData = data.standings || [];
+    renderStandings();
+  } catch(e) {
+    document.getElementById('standings').innerHTML =
+      `<div class="standings-empty"><div class="big">连接失败</div>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function showSkeleton() {
+  const container = document.getElementById('standings');
+  container.innerHTML = Array(5).fill(0).map(() => `
+    <div class="skeleton-row">
+      <div class="skeleton-bar skeleton-num"></div>
+      <div class="skeleton-bar skeleton-name"></div>
+      <div class="skeleton-bar skeleton-score"></div>
+    </div>
+  `).join('');
 }
 
 function renderStandings() {
@@ -498,37 +676,45 @@ function renderStandings() {
   const container = document.getElementById('standings');
 
   if (!currentSeason) {
-    badge.textContent = '暂无活跃赛季';
+    badge.innerHTML = '<span class="dot"></span>暂无活跃赛季';
     badge.className = 'season-badge inactive';
-    container.innerHTML = '<div class="standings-empty"><div class="big">尚无赛季</div>点击右下角日历按钮新建赛季</div>';
+    container.innerHTML = `
+      <div class="standings-empty">
+        <div class="icon">⚔</div>
+        <div class="big">尚无赛季</div>
+        <div>点击右下角日历按钮新建赛季</div>
+      </div>`;
     return;
   }
 
-  badge.textContent = currentSeason.name + (currentSeason.is_active ? '' : ' · 已结束');
+  badge.innerHTML = `<span class="dot"></span>${escapeHtml(currentSeason.name)}${currentSeason.is_active ? '' : ' · 已结束'}`;
   badge.className = currentSeason.is_active ? 'season-badge' : 'season-badge inactive';
 
   if (standingsData.length === 0) {
-    container.innerHTML = '<div class="standings-empty"><div class="big">赛季尚未开始</div>等待第一局录入</div>';
+    container.innerHTML = `
+      <div class="standings-empty">
+        <div class="icon">📜</div>
+        <div class="big">赛季尚未开始</div>
+        <div>等待第一局录入</div>
+      </div>`;
     return;
   }
 
   container.innerHTML = standingsData.map((p, i) => `
-    <div class="rank-row" onclick="toggleDetail(${p.id})" id="row-${p.id}">
+    <div class="rank-row" style="animation-delay:${i * 0.06}s" onclick="toggleDetail(${p.id})" id="row-${p.id}">
       <div class="rank-num">${i + 1}</div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(p.name)}</div>
-        <div class="rank-meta">${p.match_count}局 · 存活${p.survival_count}次</div>
+        <div class="rank-meta">
+          <span>${p.match_count}局</span>
+          <span class="sep">·</span>
+          <span class="survival">存活${p.survival_count}次</span>
+        </div>
       </div>
-      <div class="rank-score">${p.total_score}</div>
+      <div class="rank-score">${p.total_score}<span class="label">分</span></div>
     </div>
     <div class="rank-detail" id="detail-${p.id}"></div>
   `).join('');
-}
-
-function escapeHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
 }
 
 // ============ 玩家明细 ============
@@ -551,18 +737,21 @@ async function toggleDetail(playerId) {
   expandedPlayerId = playerId;
   row.classList.add('expanded');
   detail.classList.add('show');
-  detail.innerHTML = '<div style="text-align:center;color:var(--paper-mute);padding:8px;">加载中...</div>';
+  detail.innerHTML = '<div style="text-align:center;color:var(--paper-mute);padding:12px;font-size:12px;">加载中...</div>';
 
   try {
     const seasonParam = currentSeason ? `?season_id=${currentSeason.id}` : '';
     const data = await api(`/api/player/${playerId}/details${seasonParam}`);
     if (!data.details || data.details.length === 0) {
-      detail.innerHTML = '<div style="color:var(--paper-mute);font-size:12px;">暂无对局记录</div>';
+      detail.innerHTML = '<div style="color:var(--paper-mute);font-size:12px;text-align:center;padding:8px;">暂无对局记录</div>';
       return;
     }
     detail.innerHTML = data.details.map(d => `
       <div class="detail-row">
-        <span>${d.played_at ? d.played_at.slice(0,16).replace('T',' ') : '—'} · 第${d.rank}名 ${d.is_survivor ? '<span class="survivor">存活</span>' : '淘汰'}</span>
+        <span>${d.played_at ? d.played_at.slice(5,16).replace('T',' ') : '—'}
+          <span class="sep">·</span>第${d.rank}名
+          <span class="${d.is_survivor ? 'survivor' : 'eliminated'}">${d.is_survivor ? '存活' : '淘汰'}</span>
+        </span>
         <span class="score-val">${d.score}分</span>
       </div>
     `).join('');
@@ -573,13 +762,9 @@ async function toggleDetail(playerId) {
 
 // ============ 弹窗系统 ============
 function openModal(type) {
-  if (type === 'match') {
-    openMatchModal();
-  } else if (type === 'roster') {
-    openRosterModal();
-  } else if (type === 'season') {
-    openSeasonModal();
-  }
+  if (type === 'match') openMatchModal();
+  else if (type === 'roster') openRosterModal();
+  else if (type === 'season') openSeasonModal();
 }
 
 function closeModal() {
@@ -602,9 +787,7 @@ function authStep(title, onSuccess) {
       <input type="password" class="form-input" id="authInput" placeholder="输入房主密码" onkeydown="if(event.key==='Enter')doAuth()">
     </div>
   `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doAuth()">确认</button>`);
-
   document.getElementById('authInput').focus();
-
   window._authCallback = onSuccess;
 }
 
@@ -642,7 +825,7 @@ function renderRosterModal() {
   `).join('');
 
   setModal('花名册管理', `
-    ${list || '<div style="text-align:center;color:var(--paper-mute);padding:20px;">花名册为空，添加玩家开始</div>'}
+    ${list || '<div style="text-align:center;color:var(--paper-mute);padding:24px;font-size:14px;">花名册为空，添加玩家开始</div>'}
     <div style="margin-top:16px;">
       <div class="form-group">
         <label class="form-label">添加新玩家</label>
@@ -693,11 +876,11 @@ async function openMatchModal() {
     openModal('season');
     return;
   }
-
   authStep('录入成绩', async () => {
     await loadPlayers();
     if (allPlayers.length < 5) {
-      setModal('录入成绩', '<div style="text-align:center;color:var(--paper-mute);padding:20px;">花名册不足 5 人，请先添加玩家</div>',
+      setModal('录入成绩',
+        '<div style="text-align:center;color:var(--paper-mute);padding:24px;font-size:14px;">花名册不足 5 人，请先添加玩家</div>',
         '<button class="btn btn-ghost" onclick="closeModal()">关闭</button>');
       return;
     }
@@ -708,42 +891,85 @@ async function openMatchModal() {
 let matchSelected = new Set();
 
 function renderMatchStep1() {
+  // 默认选中所有玩家（最多10人）
   matchSelected.clear();
-  const list = allPlayers.map(p => `
-    <div class="player-pick" id="pick-${p.id}" onclick="togglePick(${p.id})">
-      <input type="checkbox" id="chk-${p.id}">
-      <label for="chk-${p.id}" onclick="event.preventDefault();togglePick(${p.id})">${escapeHtml(p.name)}</label>
-    </div>
-  `).join('');
+  allPlayers.forEach(p => {
+    if (matchSelected.size < 10) matchSelected.add(p.id);
+  });
+
+  const list = allPlayers.map(p => {
+    const selected = matchSelected.has(p.id);
+    return `
+      <div class="player-pick ${selected ? 'selected' : ''}" id="pick-${p.id}" onclick="togglePick(${p.id})">
+        <div class="check">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <label onclick="event.preventDefault();togglePick(${p.id})">${escapeHtml(p.name)}</label>
+      </div>`;
+  }).join('');
+
+  const count = matchSelected.size;
+  const countClass = (count < 5 || count > 10) ? 'warn' : 'ok';
 
   setModal('录入成绩 · 选人', `
-    <div class="sort-hint">从花名册中勾选今天到场的 5-10 人</div>
-    ${list}
-    <div class="player-count" id="pickCount">已选 0 人</div>
-  `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" id="step1Next" onclick="renderMatchStep2()" disabled>下一步</button>`);
+    <div class="sort-hint">从花名册中勾选今天到场的 <b>5-10 人</b>，默认全选。</div>
+    <div class="pick-actions">
+      <button onclick="selectAllPlayers()">全选</button>
+      <button onclick="clearAllPlayers()">清空</button>
+    </div>
+    <div class="player-pick-list">${list}</div>
+    <div class="player-count ${countClass}" id="pickCount">已选 ${count} 人</div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" id="step1Next" onclick="renderMatchStep2()" ${count < 5 || count > 10 ? 'disabled' : ''}>下一步</button>`);
+}
+
+function selectAllPlayers() {
+  matchSelected.clear();
+  allPlayers.forEach(p => {
+    if (matchSelected.size < 10) matchSelected.add(p.id);
+  });
+  refreshPickUI();
+}
+
+function clearAllPlayers() {
+  matchSelected.clear();
+  refreshPickUI();
+}
+
+function refreshPickUI() {
+  allPlayers.forEach(p => {
+    const pick = document.getElementById(`pick-${p.id}`);
+    if (!pick) return;
+    const selected = matchSelected.has(p.id);
+    pick.classList.toggle('selected', selected);
+    pick.querySelector('.check svg').style.opacity = selected ? '1' : '0';
+  });
+  const count = matchSelected.size;
+  const el = document.getElementById('pickCount');
+  el.textContent = `已选 ${count} 人`;
+  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
+  document.getElementById('step1Next').disabled = count < 5 || count > 10;
 }
 
 function togglePick(id) {
   const pick = document.getElementById(`pick-${id}`);
-  const chk = document.getElementById(`chk-${id}`);
   if (matchSelected.has(id)) {
     matchSelected.delete(id);
     pick.classList.remove('selected');
-    chk.checked = false;
+    pick.querySelector('.check svg').style.opacity = '0';
   } else {
     if (matchSelected.size >= 10) { showToast('最多 10 人', 'error'); return; }
     matchSelected.add(id);
     pick.classList.add('selected');
-    chk.checked = true;
+    pick.querySelector('.check svg').style.opacity = '1';
   }
   const count = matchSelected.size;
   const el = document.getElementById('pickCount');
   el.textContent = `已选 ${count} 人`;
-  el.className = 'player-count' + (count < 5 || count > 10 ? ' warn' : '');
+  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
   document.getElementById('step1Next').disabled = count < 5 || count > 10;
 }
 
-let matchOrder = []; // [{player_id, name, is_survivor}]
+let matchOrder = [];
 
 function renderMatchStep2() {
   matchOrder = Array.from(matchSelected).map(id => {
@@ -773,7 +999,7 @@ function renderSortList() {
   const list = matchOrder.map((r, i) => `
     <div class="sort-item ${r.is_survivor ? 'survivor' : ''}" id="sort-${i}" draggable="true"
          ondragstart="dragStart(${i})" ondragover="event.preventDefault()" ondrop="dragDrop(${i})" ondragend="dragEnd()">
-      <span class="sort-handle">::</span>
+      <span class="sort-handle">⠿</span>
       <span class="sort-rank">${i + 1}</span>
       <span class="sort-name">${escapeHtml(r.name)}</span>
       <span class="sort-score">${r.score}</span>
@@ -786,10 +1012,13 @@ function renderSortList() {
   `).join('');
 
   setModal('录入成绩 · 排序', `
-    <div class="sort-hint">拖拽排列淘汰顺序（上 = 最后存活，下 = 先出局）。点击右侧按钮标记存活者。</div>
+    <div class="sort-hint">拖拽排列淘汰顺序（<b>上方 = 最后存活</b>，下方 = 先出局）。点击右侧按钮标记存活者。</div>
     <div class="sort-list">${list}</div>
     <div class="score-preview">
-      <div class="score-preview-title">分数预览 · 最高 ${topScore} 分</div>
+      <div class="score-preview-title">
+        <span>分数预览</span>
+        <span class="top-score">最高 ${topScore} 分</span>
+      </div>
       <div class="score-preview-grid">${preview}</div>
     </div>
   `, `<button class="btn btn-ghost" onclick="renderMatchStep1()">上一步</button><button class="btn btn-primary" onclick="submitMatch()">提交</button>`);
@@ -817,7 +1046,6 @@ function toggleSurvivor(i) {
 }
 
 async function submitMatch() {
-  // 生成 rank
   const results = matchOrder.map((r, i) => ({
     player_id: r.player_id,
     rank: i + 1,
@@ -850,27 +1078,34 @@ async function renderSeasonModal() {
     <div class="season-item ${s.is_active ? 'active' : ''}">
       <div>
         <div class="s-name">${escapeHtml(s.name)}</div>
-        <div class="s-meta">${s.started_at ? s.started_at.slice(0,10) : ''} ${s.ended_at ? '→ '+s.ended_at.slice(0,10) : ''}</div>
+        <div class="s-meta">${s.started_at ? s.started_at.slice(0,10) : ''} ${s.ended_at ? '→ '+s.ended_at.slice(0,10) : '· 进行中'}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div class="s-actions">
         <span class="s-matches">${s.match_count}局</span>
-        ${s.is_active ? `<button onclick="endSeason(${s.id})">结束</button>` : `<button onclick="viewSeason(${s.id})">查看</button>`}
+        ${s.is_active
+          ? `<button class="s-btn" onclick="endSeason(${s.id})">结束</button>`
+          : `<button class="s-btn gold" onclick="viewSeason(${s.id})">查看</button>`}
       </div>
     </div>
   `).join('');
 
+  const defaultName = getDefaultSeasonName();
+
   setModal('赛季管理', `
-    ${list || '<div style="text-align:center;color:var(--paper-mute);padding:20px;">暂无赛季</div>'}
+    ${list || '<div style="text-align:center;color:var(--paper-mute);padding:24px;font-size:14px;">暂无赛季</div>'}
     <div style="margin-top:16px;">
       <div class="form-group">
         <label class="form-label">新建赛季</label>
         <div style="display:flex;gap:8px;">
-          <input type="text" class="form-input" id="newSeasonName" placeholder="如：2026秋季赛" onkeydown="if(event.key==='Enter')createSeason()">
+          <input type="text" class="form-input" id="newSeasonName" value="${defaultName}" onkeydown="if(event.key==='Enter')createSeason()">
           <button class="btn btn-primary" onclick="createSeason()">新建</button>
         </div>
       </div>
     </div>
   `, `<button class="btn btn-ghost" onclick="closeModal();loadStandings()">完成</button>`);
+
+  document.getElementById('newSeasonName').focus();
+  document.getElementById('newSeasonName').select();
 }
 
 async function createSeason() {
@@ -898,15 +1133,6 @@ function viewSeason(id) {
 }
 
 // ============ 初始化 ============
-async function init() {
-  try {
-    await loadStandings();
-  } catch(e) {
-    document.getElementById('standings').innerHTML =
-      `<div class="standings-empty"><div class="big">连接失败</div>${escapeHtml(e.message)}</div>`;
-  }
-}
-
 init();
 </script>
 </body>
