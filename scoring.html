@@ -921,7 +921,7 @@ function authStep(title, onSuccess) {
 function doAuth() {
   const val = document.getElementById('authInput').value;
   houseKey = val;
-  api('/api/players', { auth: true }).then(() => {
+  api('/api/auth', { method:'POST', auth:true }).then(() => {
     if (window._authCallback) window._authCallback();
   }).catch(() => {
     showToast('密码错误', 'error');

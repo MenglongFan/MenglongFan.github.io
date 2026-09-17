@@ -46,6 +46,12 @@ export default {
     }
 
     try {
+      // POST /api/auth — 验证房主密码
+      if (path === '/api/auth' && method === 'POST') {
+        const ok = checkAuth(request, env);
+        return json(ok ? { ok: true } : { error: '密码错误' }, ok ? 200 : 401);
+      }
+
       // GET /api/seasons — 赛季列表
       if (path === '/api/seasons' && method === 'GET') {
         const stmt = env.DB.prepare(
