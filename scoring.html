@@ -1606,11 +1606,8 @@ function renderPrizeModal(data) {
 }
 
 function openWithdraw() {
-  if (!houseKey) {
-    authStep('支取奖池', () => showWithdrawForm());
-    return;
-  }
-  showWithdrawForm();
+  houseKey = '';
+  authStep('支取奖池', () => showWithdrawForm());
 }
 
 async function showWithdrawForm() {
