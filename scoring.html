@@ -1246,110 +1246,21 @@ async function openMatchModal() {
     return;
   }
   authStep('录入成绩', async () => {
-    await loadPlayers();
-    if (allPlayers.length < 5) {
+    const seasonPlayers = await api(`/api/season/${currentSeason.id}/players`);
+    if (!seasonPlayers || seasonPlayers.length < 5) {
       setModal('录入成绩',
-        '<div style="text-align:center;color:var(--paper-mute);padding:24px;font-family:var(--font-label);font-size:14px;">花名册不足 5 人，请先添加玩家</div>',
+        '<div style="text-align:center;color:var(--paper-mute);padding:24px;font-family:var(--font-label);font-size:14px;">本赛季参赛选手不足 5 人</div>',
         '<button class="btn btn-ghost" onclick="closeModal()">关闭</button>');
       return;
     }
-    renderMatchStep1();
+    matchOrder = seasonPlayers.map(p => ({
+      player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0
+    }));
+    renderSortList();
   });
-}
-
-let matchSelected = new Set();
-
-function renderMatchStep1() {
-  matchSelected.clear();
-  allPlayers.forEach(p => {
-    if (matchSelected.size < 10) matchSelected.add(p.id);
-  });
-
-  const list = allPlayers.map(p => {
-    const selected = matchSelected.has(p.id);
-    return `
-      <div class="player-pick ${selected ? 'selected' : ''}" id="pick-${p.id}" onclick="togglePick(${p.id})">
-        <div class="pick-avatar">${avatarImg(p.avatar_url, p.name)}</div>
-        <div class="check">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-        </div>
-        <label onclick="event.preventDefault();togglePick(${p.id})">${escapeHtml(p.name)}</label>
-      </div>`;
-  }).join('');
-
-  const count = matchSelected.size;
-  const countClass = (count < 5 || count > 10) ? 'warn' : 'ok';
-
-  setModal('录入成绩 · 选人', `
-    <div class="sort-hint">从花名册中勾选今天到场的 <b>5-10 人</b>，默认全选。</div>
-    <div class="pick-actions">
-      <button onclick="selectAllPlayers()">全选</button>
-      <button onclick="clearAllPlayers()">清空</button>
-    </div>
-    <div class="player-pick-list">${list}</div>
-    <div class="player-count ${countClass}" id="pickCount">已选 ${count} 人</div>
-  `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" id="step1Next" onclick="renderMatchStep2()" ${count < 5 || count > 10 ? 'disabled' : ''}>下一步</button>`);
-}
-
-function selectAllPlayers() {
-  matchSelected.clear();
-  allPlayers.forEach(p => {
-    if (matchSelected.size < 10) matchSelected.add(p.id);
-  });
-  refreshPickUI();
-}
-
-function clearAllPlayers() {
-  matchSelected.clear();
-  refreshPickUI();
-}
-
-function refreshPickUI() {
-  allPlayers.forEach(p => {
-    const pick = document.getElementById(`pick-${p.id}`);
-    if (!pick) return;
-    const selected = matchSelected.has(p.id);
-    pick.classList.toggle('selected', selected);
-    pick.querySelector('.check svg').style.opacity = selected ? '1' : '0';
-    pick.querySelector('.check svg').style.transform = selected ? 'scale(1)' : 'scale(0.3)';
-  });
-  const count = matchSelected.size;
-  const el = document.getElementById('pickCount');
-  el.textContent = `已选 ${count} 人`;
-  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
-  document.getElementById('step1Next').disabled = count < 5 || count > 10;
-}
-
-function togglePick(id) {
-  const pick = document.getElementById(`pick-${id}`);
-  if (matchSelected.has(id)) {
-    matchSelected.delete(id);
-    pick.classList.remove('selected');
-    pick.querySelector('.check svg').style.opacity = '0';
-    pick.querySelector('.check svg').style.transform = 'scale(0.3)';
-  } else {
-    if (matchSelected.size >= 10) { showToast('最多 10 人', 'error'); return; }
-    matchSelected.add(id);
-    pick.classList.add('selected');
-    pick.querySelector('.check svg').style.opacity = '1';
-    pick.querySelector('.check svg').style.transform = 'scale(1)';
-  }
-  const count = matchSelected.size;
-  const el = document.getElementById('pickCount');
-  el.textContent = `已选 ${count} 人`;
-  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
-  document.getElementById('step1Next').disabled = count < 5 || count > 10;
 }
 
 let matchOrder = [];
-
-function renderMatchStep2() {
-  matchOrder = Array.from(matchSelected).map(id => {
-    const p = allPlayers.find(x => x.id === id);
-    return { player_id: id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 };
-  });
-  renderSortList();
-}
 
 function renderSortList() {
   const total = matchOrder.length;
@@ -1393,7 +1304,7 @@ function renderSortList() {
       </div>
       <div class="score-preview-grid">${preview}</div>
     </div>
-  `, `<button class="btn btn-ghost" onclick="renderMatchStep1()">上一步</button><button class="btn btn-primary" onclick="submitMatch()">提交</button>`);
+  `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="submitMatch()">提交</button>`);
 }
 
 let dragIndex = null;
@@ -1469,8 +1380,8 @@ async function renderSeasonModal() {
       <div class="form-group">
         <label class="form-label">新建赛季</label>
         <div style="display:flex;gap:10px;">
-          <input type="text" class="form-input" id="newSeasonName" value="${defaultName}" onkeydown="if(event.key==='Enter')createSeason()">
-          <button class="btn btn-primary" onclick="createSeason()">新建</button>
+          <input type="text" class="form-input" id="newSeasonName" value="${defaultName}" onkeydown="if(event.key==='Enter')showCreateSeasonForm()">
+          <button class="btn btn-primary" onclick="showCreateSeasonForm()">新建</button>
         </div>
       </div>
     </div>
@@ -1480,11 +1391,94 @@ async function renderSeasonModal() {
   document.getElementById('newSeasonName').select();
 }
 
-async function createSeason() {
+let seasonSelectedPlayers = new Set();
+
+async function showCreateSeasonForm() {
   const name = document.getElementById('newSeasonName').value.trim();
-  if (!name) return;
+  if (!name) { showToast('请输入赛季名称', 'error'); return; }
+
+  await loadPlayers();
+  seasonSelectedPlayers.clear();
+  allPlayers.forEach(p => seasonSelectedPlayers.add(p.id));
+
+  const list = allPlayers.map(p => {
+    const selected = seasonSelectedPlayers.has(p.id);
+    return `
+      <div class="player-pick ${selected ? 'selected' : ''}" id="sp-${p.id}" onclick="toggleSeasonPick(${p.id})">
+        <div class="pick-avatar">${avatarImg(p.avatar_url, p.name)}</div>
+        <div class="check">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <label onclick="event.preventDefault();toggleSeasonPick(${p.id})">${escapeHtml(p.name)}</label>
+      </div>`;
+  }).join('');
+
+  const count = seasonSelectedPlayers.size;
+  const countClass = (count < 5 || count > 10) ? 'warn' : 'ok';
+
+  setModal(`新建赛季 · ${name}`, `
+    <div class="sort-hint">勾选本赛季的参赛选手（<b>5-10 人</b>），整个赛季期间选手不变。</div>
+    <div class="pick-actions">
+      <button onclick="selectAllSeasonPlayers()">全选</button>
+      <button onclick="clearAllSeasonPlayers()">清空</button>
+    </div>
+    <div class="player-pick-list">${list}</div>
+    <div class="player-count ${countClass}" id="seasonPickCount">已选 ${count} 人</div>
+  `, `<button class="btn btn-ghost" onclick="renderSeasonModal()">上一步</button><button class="btn btn-primary" id="seasonCreateBtn" onclick="createSeason('${name}')">创建赛季</button>`);
+}
+
+function toggleSeasonPick(id) {
+  const pick = document.getElementById(`sp-${id}`);
+  if (seasonSelectedPlayers.has(id)) {
+    seasonSelectedPlayers.delete(id);
+    pick.classList.remove('selected');
+    pick.querySelector('.check svg').style.opacity = '0';
+    pick.querySelector('.check svg').style.transform = 'scale(0.3)';
+  } else {
+    if (seasonSelectedPlayers.size >= 10) { showToast('最多 10 人', 'error'); return; }
+    seasonSelectedPlayers.add(id);
+    pick.classList.add('selected');
+    pick.querySelector('.check svg').style.opacity = '1';
+    pick.querySelector('.check svg').style.transform = 'scale(1)';
+  }
+  const count = seasonSelectedPlayers.size;
+  const el = document.getElementById('seasonPickCount');
+  el.textContent = `已选 ${count} 人`;
+  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
+  document.getElementById('seasonCreateBtn').disabled = count < 5 || count > 10;
+}
+
+function selectAllSeasonPlayers() {
+  seasonSelectedPlayers.clear();
+  allPlayers.forEach(p => { if (seasonSelectedPlayers.size < 10) seasonSelectedPlayers.add(p.id); });
+  refreshSeasonPickUI();
+}
+
+function clearAllSeasonPlayers() {
+  seasonSelectedPlayers.clear();
+  refreshSeasonPickUI();
+}
+
+function refreshSeasonPickUI() {
+  allPlayers.forEach(p => {
+    const pick = document.getElementById(`sp-${p.id}`);
+    if (!pick) return;
+    const selected = seasonSelectedPlayers.has(p.id);
+    pick.classList.toggle('selected', selected);
+    pick.querySelector('.check svg').style.opacity = selected ? '1' : '0';
+    pick.querySelector('.check svg').style.transform = selected ? 'scale(1)' : 'scale(0.3)';
+  });
+  const count = seasonSelectedPlayers.size;
+  const el = document.getElementById('seasonPickCount');
+  el.textContent = `已选 ${count} 人`;
+  el.className = 'player-count ' + (count < 5 || count > 10 ? 'warn' : 'ok');
+  document.getElementById('seasonCreateBtn').disabled = count < 5 || count > 10;
+}
+
+async function createSeason(name) {
+  const playerIds = Array.from(seasonSelectedPlayers);
   try {
-    await api('/api/season', { method:'POST', auth:true, body:JSON.stringify({ name }) });
+    await api('/api/season', { method:'POST', auth:true, body:JSON.stringify({ name, player_ids: playerIds }) });
     await renderSeasonModal();
     showToast('赛季已创建', 'success');
   } catch(e) { showToast(e.message, 'error'); }

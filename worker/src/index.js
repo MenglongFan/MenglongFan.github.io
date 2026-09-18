@@ -124,10 +124,27 @@ export default {
         return json(results);
       }
 
-      // POST /api/season — 新建赛季
+      // GET /api/season/:id/players — 赛季参赛选手
+      const seasonPlayersMatch = path.match(/^\/api\/season\/(\d+)\/players$/);
+      if (seasonPlayersMatch && method === 'GET') {
+        const seasonId = parseInt(seasonPlayersMatch[1]);
+        const { results } = await env.DB.prepare(
+          `SELECT p.* FROM season_players sp
+           JOIN players p ON sp.player_id = p.id
+           WHERE sp.season_id = ?
+           ORDER BY p.id`
+        ).bind(seasonId).all();
+        return json(results);
+      }
+
+      // POST /api/season — 新建赛季（含参赛选手绑定）
       if (path === '/api/season' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
         const body = await request.json();
+        const playerIds = body.player_ids || [];
+        if (playerIds.length < 5 || playerIds.length > 10) {
+          return json({ error: '参赛人数须为 5-10 人' }, 400);
+        }
         // 结束当前活跃赛季
         await env.DB.prepare(
           `UPDATE seasons SET is_active = 0, ended_at = datetime('now') WHERE is_active = 1`
@@ -136,7 +153,15 @@ export default {
         const result = await env.DB.prepare(
           `INSERT INTO seasons (name) VALUES (?)`
         ).bind(body.name).run();
-        return json({ id: result.meta.last_row_id, name: body.name, is_active: 1 });
+        const seasonId = result.meta.last_row_id;
+        // 绑定参赛选手
+        const inserts = playerIds.map(pid =>
+          env.DB.prepare(
+            `INSERT INTO season_players (season_id, player_id) VALUES (?, ?)`
+          ).bind(seasonId, pid)
+        );
+        await env.DB.batch(inserts);
+        return json({ id: seasonId, name: body.name, is_active: 1, player_count: playerIds.length });
       }
 
       // POST /api/season/:id/end — 结束赛季 + 计算罚金 + 奖池入账
