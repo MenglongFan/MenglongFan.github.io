@@ -965,6 +965,13 @@ function showToast(msg, type='') {
   setTimeout(() => t.className = 'toast', 2500);
 }
 
+function confirmAction(message, onConfirm) {
+  setModal('确认操作', `
+    <div style="padding:8px 4px 4px;font-size:15px;line-height:1.7;color:var(--paper);">${message}</div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" id="confirmOkBtn">确定</button>`);
+  document.getElementById('confirmOkBtn').onclick = () => { closeModal(); onConfirm(); };
+}
+
 async function api(path, opts={}) {
   const headers = { 'Content-Type': 'application/json', ...opts.headers };
   if (opts.auth && houseKey) headers['X-House-Key'] = houseKey;
@@ -1221,13 +1228,14 @@ async function updatePlayer(id) {
 }
 
 async function deletePlayer(id) {
-  if (!confirm('确定删除？历史对局记录将保留。')) return;
-  try {
-    await api(`/api/player/${id}`, { method:'DELETE', auth:true });
-    await loadPlayers();
-    renderRosterModal();
-    showToast('已删除', 'success');
-  } catch(e) { showToast(e.message, 'error'); }
+  confirmAction('确定删除该玩家？历史对局记录将保留。', async () => {
+    try {
+      await api(`/api/player/${id}`, { method:'DELETE', auth:true });
+      await loadPlayers();
+      renderRosterModal();
+      showToast('已删除', 'success');
+    } catch(e) { showToast(e.message, 'error'); }
+  });
 }
 
 /* ============ 录入成绩 ============ */
@@ -1483,34 +1491,34 @@ async function createSeason() {
 }
 
 async function endSeason(id) {
-  if (!confirm('确定结束当前赛季？结束后自动计算末位罚金并入账奖池。')) return;
-  try {
-    const result = await api(`/api/season/${id}/end`, { method:'POST', auth:true });
-    await renderSeasonModal();
-    showToast('赛季已结束', 'success');
+  confirmAction('确定结束当前赛季？结束后将自动计算末位罚金并入账奖池。', async () => {
+    try {
+      const result = await api(`/api/season/${id}/end`, { method:'POST', auth:true });
+      await renderSeasonModal();
+      showToast('赛季已结束', 'success');
 
-    // 如果有罚金，展示结果
-    if (result.fines && result.fines.length > 0) {
-      const fineHtml = `
-        <div class="fine-result">
-          <div class="fine-result-title">本期罚金明细</div>
-          ${result.fines.map(f => `
-            <div class="fine-item">
-              <div class="fine-avatar">${avatarImg(null, f.player_name)}</div>
-              <span class="fine-name">${escapeHtml(f.player_name)}</span>
-              <span class="fine-amount">${f.amount}元</span>
+      // 如果有罚金，展示结果
+      if (result.fines && result.fines.length > 0) {
+        const fineHtml = `
+          <div class="fine-result">
+            <div class="fine-result-title">本期罚金明细</div>
+            ${result.fines.map(f => `
+              <div class="fine-item">
+                <div class="fine-avatar">${avatarImg(null, f.player_name)}</div>
+                <span class="fine-name">${escapeHtml(f.player_name)}</span>
+                <span class="fine-amount">${f.amount}元</span>
+              </div>
+            `).join('')}
+            <div class="fine-result-total">
+              奖池入账 <b>${result.fines.reduce((s,f) => s + f.amount, 0)}元</b> · 新余额 ${result.new_balance}元
             </div>
-          `).join('')}
-          <div class="fine-result-total">
-            奖池入账 <b>${result.fines.reduce((s,f) => s + f.amount, 0)}元</b> · 新余额 ${result.new_balance}元
           </div>
-        </div>
-      `;
-      // 在弹窗 body 底部追加
-      const body = document.getElementById('modalBody');
-      body.insertAdjacentHTML('beforeend', fineHtml);
-    }
-  } catch(e) { showToast(e.message, 'error'); }
+        `;
+        const body = document.getElementById('modalBody');
+        body.insertAdjacentHTML('beforeend', fineHtml);
+      }
+    } catch(e) { showToast(e.message, 'error'); }
+  });
 }
 
 function viewSeason(id) {
