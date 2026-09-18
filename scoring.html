@@ -1347,7 +1347,7 @@ function renderSortList() {
   const total = matchOrder.length;
   const survivors = matchOrder.filter(r => r.is_survivor).length;
   const dead = total - survivors;
-  const topScore = dead + 1;
+  const topScore = survivors > 0 ? dead + 1 : dead;
 
   const deadList = matchOrder.filter(r => !r.is_survivor);
   matchOrder.forEach(r => {
