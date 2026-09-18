@@ -1601,7 +1601,7 @@ function renderPrizeModal(data) {
     </div>
   `, `
     <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
-    <button class="btn btn-gold" onclick="openWithdraw()">支取</button>
+    ${current_balance > 0 ? '<button class="btn btn-gold" onclick="openWithdraw()">支取</button>' : ''}
   `);
 }
 
@@ -1611,9 +1611,13 @@ function openWithdraw() {
 }
 
 async function showWithdrawForm() {
-  // 重新获取余额以显示
   try {
     const data = await api('/api/prize-pool/summary');
+    if (data.current_balance <= 0) {
+      showToast('奖池余额为零，无法支取', 'error');
+      await openPrizeModal();
+      return;
+    }
     setModal('支取奖池', `
       <div class="withdraw-hint">
         当前奖池余额：<b>${data.current_balance} 元</b>
