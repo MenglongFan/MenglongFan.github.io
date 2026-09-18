@@ -180,14 +180,14 @@ a{color:inherit;text-decoration:none;}
   border-radius:3px;
   animation:shimmer 1.8s ease infinite;
 }
-.skeleton-seal{width:36px;height:36px;border-radius:50%;}
+.skeleton-avatar{width:40px;height:40px;border-radius:50%;}
 .skeleton-name{flex:1;height:14px;}
 .skeleton-score{width:48px;height:22px;}
 
 /* ============ 排名行：军帖样式 ============ */
 .rank-row{
   display:flex;align-items:center;gap:14px;
-  padding:18px 16px;
+  padding:16px 16px;
   border-bottom:1px solid var(--paper-ghost);
   cursor:pointer;transition:all .3s cubic-bezier(.22,1,.36,1);
   position:relative;
@@ -196,35 +196,54 @@ a{color:inherit;text-decoration:none;}
 .rank-row:hover{background:var(--paper-ghost);}
 .rank-row.expanded{background:var(--paper-ghost);}
 
-/* 前三名朱砂印 */
-.rank-seal{
-  width:36px;height:36px;
-  display:flex;align-items:center;justify-content:center;
+/* 头像 */
+.rank-avatar{
+  width:40px;height:40px;border-radius:50%;
   flex-shrink:0;
-  font-family:var(--font-brush);font-size:20px;
-  border-radius:50%;
+  overflow:hidden;
+  border:2px solid var(--border);
   transition:all .3s;
   position:relative;
+  background:var(--paper-ghost);
 }
-.rank-seal::before{
-  content:'';position:absolute;inset:0;
-  border-radius:50%;
-  border:1.5px solid var(--border);
-  transition:all .3s;
+.rank-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+.rank-avatar .avatar-placeholder{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brush);font-size:18px;color:var(--paper-mute);
+  background:var(--paper-ghost);
 }
-.rank-row:hover .rank-seal::before{border-color:var(--border-bright);}
+.rank-row:hover .rank-avatar{border-color:var(--border-bright);}
 
-.rank-row:nth-child(1) .rank-seal{
-  color:var(--vermilion);
-}
-.rank-row:nth-child(1) .rank-seal::before{
+/* 前三名头像光晕 */
+.rank-row:nth-child(1) .rank-avatar{
   border-color:var(--cinnabar);
-  box-shadow:0 0 12px var(--cinnabar-glow), inset 0 0 8px rgba(139,26,26,0.15);
+  box-shadow:0 0 12px var(--cinnabar-glow);
 }
-.rank-row:nth-child(2) .rank-seal{color:var(--paper-bright);}
-.rank-row:nth-child(2) .rank-seal::before{border-color:var(--paper-dim);}
-.rank-row:nth-child(3) .rank-seal{color:var(--gold-bright);}
-.rank-row:nth-child(3) .rank-seal::before{border-color:var(--gold);}
+.rank-row:nth-child(2) .rank-avatar{
+  border-color:var(--paper-dim);
+  box-shadow:0 0 8px rgba(237,224,196,0.15);
+}
+.rank-row:nth-child(3) .rank-avatar{
+  border-color:var(--gold);
+  box-shadow:0 0 10px var(--gold-glow);
+}
+
+.rank-seal{
+  position:absolute;
+  top:-4px;left:-4px;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:var(--card);
+  border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brush);font-size:11px;
+  color:var(--paper-mute);
+  z-index:1;
+}
+.rank-row:nth-child(1) .rank-seal{border-color:var(--cinnabar);color:var(--vermilion);background:var(--void);}
+.rank-row:nth-child(2) .rank-seal{border-color:var(--paper-dim);color:var(--paper-bright);background:var(--void);}
+.rank-row:nth-child(3) .rank-seal{border-color:var(--gold);color:var(--gold-bright);background:var(--void);}
 
 .rank-info{flex:1;min-width:0;}
 .rank-name{
@@ -243,7 +262,7 @@ a{color:inherit;text-decoration:none;}
 
 .rank-score{
   font-family:var(--font-brush);
-  font-size:30px;color:var(--vermilion);
+  font-size:28px;color:var(--vermilion);
   flex-shrink:0;min-width:56px;text-align:right;
   line-height:1;
   transition:all .3s;
@@ -260,11 +279,11 @@ a{color:inherit;text-decoration:none;}
 /* ============ 展开明细 ============ */
 .rank-detail{
   max-height:0;overflow:hidden;
-  padding:0 16px 0 66px;
+  padding:0 16px 0 70px;
   background:rgba(0,0,0,0.25);
   transition:max-height .4s cubic-bezier(.22,1,.36,1);
 }
-.rank-detail.show{max-height:500px;padding:10px 16px 16px 66px;}
+.rank-detail.show{max-height:500px;padding:10px 16px 16px 70px;}
 
 .detail-row{
   display:flex;justify-content:space-between;align-items:center;
@@ -452,7 +471,7 @@ a{color:inherit;text-decoration:none;}
 .player-pick-list{display:flex;flex-direction:column;gap:6px;}
 .player-pick{
   display:flex;align-items:center;gap:12px;
-  padding:14px 16px;
+  padding:12px 16px;
   border:1px solid var(--border);
   border-radius:var(--radius);
   cursor:pointer;transition:all .25s;
@@ -477,6 +496,15 @@ a{color:inherit;text-decoration:none;}
 .player-pick .check svg{opacity:0;transform:scale(0.3);transition:all .25s;}
 .player-pick.selected .check svg{opacity:1;transform:scale(1);}
 .player-pick label{flex:1;cursor:pointer;font-size:15px;font-weight:600;color:var(--paper-bright);}
+
+.pick-avatar{
+  width:32px;height:32px;border-radius:50%;
+  flex-shrink:0;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  background:var(--paper-ghost);
+}
+.pick-avatar img{width:100%;height:100%;object-fit:cover;}
 
 .pick-actions{display:flex;gap:8px;margin-bottom:10px;}
 .pick-actions button{
@@ -512,7 +540,7 @@ a{color:inherit;text-decoration:none;}
 .sort-list{display:flex;flex-direction:column;gap:6px;}
 .sort-item{
   display:flex;align-items:center;gap:12px;
-  padding:14px 16px;
+  padding:12px 16px;
   border:1px solid var(--border);border-radius:var(--radius);
   background:var(--paper-ghost);
   transition:all .25s;
@@ -537,6 +565,14 @@ a{color:inherit;text-decoration:none;}
   width:30px;text-align:center;flex-shrink:0;
   color:var(--gold-bright);
 }
+.sort-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.sort-avatar img{width:100%;height:100%;object-fit:cover;}
 .sort-name{flex:1;font-size:15px;font-weight:600;color:var(--paper-bright);}
 .sort-score{
   font-family:var(--font-brush);font-size:24px;
@@ -583,14 +619,22 @@ a{color:inherit;text-decoration:none;}
 
 /* ============ 花名册 ============ */
 .roster-item{
-  display:flex;align-items:center;gap:8px;
-  padding:12px 16px;
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
   border:1px solid var(--border);border-radius:var(--radius);
   margin-bottom:6px;
   background:var(--paper-ghost);
   transition:all .2s;
 }
 .roster-item:hover{border-color:var(--border-bright);}
+.roster-avatar{
+  width:32px;height:32px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.roster-avatar img{width:100%;height:100%;object-fit:cover;}
 .roster-item input{
   flex:1;background:transparent;border:none;color:var(--paper-bright);
   font-size:15px;font-weight:600;font-family:var(--font-serif);
@@ -629,6 +673,179 @@ a{color:inherit;text-decoration:none;}
 .season-item .s-btn:hover{background:var(--cinnabar);color:var(--paper-bright);}
 .season-item .s-btn.gold{border-color:var(--gold);color:var(--gold-bright);}
 .season-item .s-btn.gold:hover{background:var(--gold);color:var(--void);}
+
+/* ============ 奖池弹窗 ============ */
+.prize-total{
+  text-align:center;
+  padding:24px 0 20px;
+  position:relative;
+}
+.prize-total::after{
+  content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity:0.3;
+}
+.prize-total .label{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  letter-spacing:0.2em;
+  margin-bottom:8px;
+}
+.prize-total .amount{
+  font-family:var(--font-brush);
+  font-size:52px;
+  color:var(--gold-bright);
+  line-height:1;
+  text-shadow:0 0 30px var(--gold-glow);
+}
+.prize-total .amount .yuan{
+  font-size:24px;
+  margin-left:4px;
+  color:var(--gold);
+  opacity:0.7;
+}
+
+.prize-section{
+  margin-top:20px;
+}
+.prize-section-title{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  letter-spacing:0.15em;
+  margin-bottom:10px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--paper-ghost);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.prize-section-title .count{color:var(--gold);}
+
+.contribution-list{display:flex;flex-direction:column;gap:4px;}
+.contribution-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 4px;
+  transition:all .2s;
+}
+.contribution-item:hover{background:var(--paper-ghost);border-radius:var(--radius);padding:8px 8px;}
+.contrib-rank{
+  width:20px;text-align:center;
+  font-family:var(--font-brush);font-size:14px;
+  color:var(--paper-mute);
+  flex-shrink:0;
+}
+.contribution-item:nth-child(1) .contrib-rank{color:var(--gold-bright);}
+.contribution-item:nth-child(2) .contrib-rank{color:var(--paper-dim);}
+.contribution-item:nth-child(3) .contrib-rank{color:var(--vermilion);}
+.contrib-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.contrib-avatar img{width:100%;height:100%;object-fit:cover;}
+.contrib-name{
+  flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);
+}
+.contrib-amount{
+  font-family:var(--font-brush);font-size:18px;
+  color:var(--vermilion);
+}
+
+.tx-list{display:flex;flex-direction:column;gap:2px;}
+.tx-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 4px;
+  border-bottom:1px solid var(--paper-ghost);
+}
+.tx-item:last-child{border-bottom:none;}
+.tx-info{flex:1;min-width:0;}
+.tx-type{
+  font-size:12px;font-weight:600;
+  display:inline-block;
+  padding:2px 8px;border-radius:3px;
+  margin-bottom:4px;
+}
+.tx-type.fine{background:rgba(139,26,26,0.15);color:var(--vermilion);border:1px solid rgba(139,26,26,0.3);}
+.tx-type.withdrawal{background:rgba(45,107,79,0.15);color:var(--jade-bright);border:1px solid rgba(45,107,79,0.3);}
+.tx-desc{
+  font-size:12px;color:var(--paper-mute);
+  font-family:var(--font-label);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tx-amount{
+  text-align:right;flex-shrink:0;
+}
+.tx-amount .val{
+  font-family:var(--font-brush);font-size:18px;
+  display:block;
+}
+.tx-amount .val.positive{color:var(--vermilion);}
+.tx-amount .val.negative{color:var(--jade-bright);}
+.tx-amount .balance{
+  font-size:11px;color:var(--paper-mute);
+  font-family:var(--font-label);
+}
+
+.prize-empty{
+  text-align:center;padding:24px;
+  color:var(--paper-mute);font-size:13px;
+  font-family:var(--font-label);
+}
+
+.withdraw-hint{
+  font-size:12px;color:var(--paper-mute);
+  font-family:var(--font-label);
+  margin-bottom:12px;
+  padding:10px 14px;
+  background:var(--paper-ghost);
+  border-radius:var(--radius);
+  border-left:2px solid var(--jade);
+}
+.withdraw-hint b{color:var(--jade-bright);font-weight:700;}
+
+/* ============ 赛季结束罚金展示 ============ */
+.fine-result{
+  margin-top:16px;
+  padding:16px;
+  background:rgba(139,26,26,0.08);
+  border:1px solid rgba(139,26,26,0.2);
+  border-radius:var(--radius);
+}
+.fine-result-title{
+  font-family:var(--font-brush);
+  font-size:16px;color:var(--vermilion);
+  margin-bottom:12px;
+  text-align:center;
+}
+.fine-result-total{
+  text-align:center;
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(139,26,26,0.15);
+}
+.fine-result-total b{
+  color:var(--gold-bright);
+  font-family:var(--font-brush);
+  font-size:20px;
+}
+.fine-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(139,26,26,0.1);
+}
+.fine-item:last-child{border-bottom:none;}
+.fine-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.fine-avatar img{width:100%;height:100%;object-fit:cover;}
+.fine-name{flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);}
+.fine-amount{font-family:var(--font-brush);font-size:18px;color:var(--vermilion);}
 
 /* ============ Toast ============ */
 .toast{
@@ -705,6 +922,10 @@ a{color:inherit;text-decoration:none;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       <span class="fab-label">录入成绩</span>
     </button>
+    <button class="fab" onclick="openModal('prize')" title="奖池">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 0 1 0 3H9"/><path d="M9 14h5"/></svg>
+      <span class="fab-label">奖池</span>
+    </button>
     <button class="fab" onclick="openModal('roster')" title="花名册">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/></svg>
       <span class="fab-label">花名册</span>
@@ -759,6 +980,14 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function avatarImg(url, name, sizeClass='') {
+  if (url) {
+    return `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <div class="avatar-placeholder" style="display:none;">${name ? name.charAt(0) : '?'}</div>`;
+  }
+  return `<div class="avatar-placeholder">${name ? name.charAt(0) : '?'}</div>`;
+}
+
 function getISOWeek(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
@@ -792,7 +1021,7 @@ function showSkeleton() {
   const container = document.getElementById('standings');
   container.innerHTML = Array(5).fill(0).map(() => `
     <div class="skeleton-row">
-      <div class="skeleton-bar skeleton-seal"></div>
+      <div class="skeleton-bar skeleton-avatar"></div>
       <div class="skeleton-bar skeleton-name"></div>
       <div class="skeleton-bar skeleton-score"></div>
     </div>
@@ -830,7 +1059,10 @@ function renderStandings() {
 
   container.innerHTML = standingsData.map((p, i) => `
     <div class="rank-row" style="animation-delay:${i * 0.06}s" onclick="toggleDetail(${p.id})" id="row-${p.id}">
-      <div class="rank-seal">${i + 1}</div>
+      <div class="rank-avatar">
+        <div class="rank-seal">${i + 1}</div>
+        ${avatarImg(p.avatar_url, p.name)}
+      </div>
       <div class="rank-info">
         <div class="rank-name">${escapeHtml(p.name)}</div>
         <div class="rank-meta">
@@ -892,6 +1124,7 @@ function openModal(type) {
   if (type === 'match') openMatchModal();
   else if (type === 'roster') openRosterModal();
   else if (type === 'season') openSeasonModal();
+  else if (type === 'prize') openPrizeModal();
 }
 
 function closeModal() {
@@ -929,6 +1162,7 @@ function doAuth() {
   });
 }
 
+/* ============ 花名册 ============ */
 async function openRosterModal() {
   authStep('花名册管理', async () => {
     await loadPlayers();
@@ -943,6 +1177,7 @@ async function loadPlayers() {
 function renderRosterModal() {
   const list = allPlayers.map(p => `
     <div class="roster-item">
+      <div class="roster-avatar">${avatarImg(p.avatar_url, p.name)}</div>
       <input value="${escapeHtml(p.name)}" id="roster-${p.id}" onchange="updatePlayer(${p.id})">
       <button class="roster-del" onclick="deletePlayer(${p.id})" title="删除">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -995,6 +1230,7 @@ async function deletePlayer(id) {
   } catch(e) { showToast(e.message, 'error'); }
 }
 
+/* ============ 录入成绩 ============ */
 async function openMatchModal() {
   if (!currentSeason || !currentSeason.is_active) {
     showToast('请先新建赛季', 'error');
@@ -1025,6 +1261,7 @@ function renderMatchStep1() {
     const selected = matchSelected.has(p.id);
     return `
       <div class="player-pick ${selected ? 'selected' : ''}" id="pick-${p.id}" onclick="togglePick(${p.id})">
+        <div class="pick-avatar">${avatarImg(p.avatar_url, p.name)}</div>
         <div class="check">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
         </div>
@@ -1101,7 +1338,7 @@ let matchOrder = [];
 function renderMatchStep2() {
   matchOrder = Array.from(matchSelected).map(id => {
     const p = allPlayers.find(x => x.id === id);
-    return { player_id: id, name: p.name, is_survivor: 0 };
+    return { player_id: id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 };
   });
   renderSortList();
 }
@@ -1127,6 +1364,7 @@ function renderSortList() {
          ondragstart="dragStart(${i})" ondragover="event.preventDefault()" ondrop="dragDrop(${i})" ondragend="dragEnd()">
       <span class="sort-handle">⠿</span>
       <span class="sort-rank">${i + 1}</span>
+      <div class="sort-avatar">${avatarImg(r.avatar_url, r.name)}</div>
       <span class="sort-name">${escapeHtml(r.name)}</span>
       <span class="sort-score">${r.score}</span>
       <button class="sort-toggle ${r.is_survivor ? 'active' : ''}" onclick="toggleSurvivor(${i})" title="存活/淘汰">${r.is_survivor ? '存' : '亡'}</button>
@@ -1191,6 +1429,7 @@ async function submitMatch() {
   }
 }
 
+/* ============ 赛季管理 ============ */
 async function openSeasonModal() {
   authStep('赛季管理', async () => {
     await renderSeasonModal();
@@ -1244,11 +1483,33 @@ async function createSeason() {
 }
 
 async function endSeason(id) {
-  if (!confirm('确定结束当前赛季？结束后排名归档，新对局记入新赛季。')) return;
+  if (!confirm('确定结束当前赛季？结束后自动计算末位罚金并入账奖池。')) return;
   try {
-    await api(`/api/season/${id}/end`, { method:'POST', auth:true });
+    const result = await api(`/api/season/${id}/end`, { method:'POST', auth:true });
     await renderSeasonModal();
     showToast('赛季已结束', 'success');
+
+    // 如果有罚金，展示结果
+    if (result.fines && result.fines.length > 0) {
+      const fineHtml = `
+        <div class="fine-result">
+          <div class="fine-result-title">本期罚金明细</div>
+          ${result.fines.map(f => `
+            <div class="fine-item">
+              <div class="fine-avatar">${avatarImg(null, f.player_name)}</div>
+              <span class="fine-name">${escapeHtml(f.player_name)}</span>
+              <span class="fine-amount">${f.amount}元</span>
+            </div>
+          `).join('')}
+          <div class="fine-result-total">
+            奖池入账 <b>${result.fines.reduce((s,f) => s + f.amount, 0)}元</b> · 新余额 ${result.new_balance}元
+          </div>
+        </div>
+      `;
+      // 在弹窗 body 底部追加
+      const body = document.getElementById('modalBody');
+      body.insertAdjacentHTML('beforeend', fineHtml);
+    }
   } catch(e) { showToast(e.message, 'error'); }
 }
 
@@ -1257,7 +1518,145 @@ function viewSeason(id) {
   loadStandings(id);
 }
 
+/* ============ 奖池 ============ */
+async function openPrizeModal() {
+  setModal('奖池', `<div style="text-align:center;color:var(--paper-mute);padding:40px;font-family:var(--font-label);font-size:14px;">加载中...</div>`, '');
+  try {
+    const data = await api('/api/prize-pool/summary');
+    renderPrizeModal(data);
+  } catch(e) {
+    setModal('奖池', `<div style="text-align:center;color:var(--vermilion);padding:40px;font-family:var(--font-label);font-size:14px;">加载失败：${escapeHtml(e.message)}</div>`,
+      `<button class="btn btn-ghost" onclick="closeModal()">关闭</button>`);
+  }
+}
+
+function renderPrizeModal(data) {
+  const { current_balance, contributions, recent_transactions } = data;
+
+  const contribHtml = contributions.length > 0
+    ? `<div class="contribution-list">
+        ${contributions.map((c, i) => `
+          <div class="contribution-item">
+            <span class="contrib-rank">${i + 1}</span>
+            <div class="contrib-avatar">${avatarImg(c.avatar_url, c.name)}</div>
+            <span class="contrib-name">${escapeHtml(c.name)}</span>
+            <span class="contrib-amount">${c.total_amount}元</span>
+          </div>
+        `).join('')}
+      </div>`
+    : `<div class="prize-empty">暂无贡献记录</div>`;
+
+  const txHtml = recent_transactions.length > 0
+    ? `<div class="tx-list">
+        ${recent_transactions.map(t => {
+          const isPositive = t.amount > 0;
+          const typeLabel = t.type === 'fine' ? '罚金入账' : '支取';
+          const desc = t.type === 'fine'
+            ? (t.season_name || '赛季罚金') + ' · ' + (t.player_name || '')
+            : (t.description || '支取');
+          return `
+            <div class="tx-item">
+              <div class="tx-info">
+                <span class="tx-type ${t.type}">${typeLabel}</span>
+                <div class="tx-desc">${escapeHtml(desc)}</div>
+              </div>
+              <div class="tx-amount">
+                <span class="val ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : ''}${t.amount}元</span>
+                <span class="balance">余额 ${t.balance}元</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>`
+    : `<div class="prize-empty">暂无流水记录</div>`;
+
+  setModal('奖池', `
+    <div class="prize-total">
+      <div class="label">公共基金池</div>
+      <div class="amount">${current_balance}<span class="yuan">元</span></div>
+    </div>
+
+    <div class="prize-section">
+      <div class="prize-section-title">
+        <span>贡献榜</span>
+        <span class="count">${contributions.length}人</span>
+      </div>
+      ${contribHtml}
+    </div>
+
+    <div class="prize-section">
+      <div class="prize-section-title">
+        <span>流水</span>
+        <span class="count">最近${recent_transactions.length}条</span>
+      </div>
+      ${txHtml}
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">关闭</button>
+    <button class="btn btn-gold" onclick="openWithdraw()">支取</button>
+  `);
+}
+
+function openWithdraw() {
+  if (!houseKey) {
+    authStep('支取奖池', () => showWithdrawForm());
+    return;
+  }
+  showWithdrawForm();
+}
+
+async function showWithdrawForm() {
+  // 重新获取余额以显示
+  try {
+    const data = await api('/api/prize-pool/summary');
+    setModal('支取奖池', `
+      <div class="withdraw-hint">
+        当前奖池余额：<b>${data.current_balance} 元</b>
+      </div>
+      <div class="form-group">
+        <label class="form-label">支取金额（元）</label>
+        <input type="number" class="form-input" id="withdrawAmount" placeholder="输入金额" min="0.01" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">用途说明</label>
+        <input type="text" class="form-input" id="withdrawDesc" placeholder="如：聚餐、采购等">
+      </div>
+    `, `
+      <button class="btn btn-ghost" onclick="openPrizeModal()">返回</button>
+      <button class="btn btn-primary" onclick="submitWithdraw()">确认支取</button>
+    `);
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function submitWithdraw() {
+  const amount = parseFloat(document.getElementById('withdrawAmount').value);
+  const description = document.getElementById('withdrawDesc').value.trim();
+
+  if (!amount || amount <= 0) {
+    showToast('请输入有效金额', 'error');
+    return;
+  }
+
+  try {
+    await api('/api/prize-pool/withdraw', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ amount, description })
+    });
+    showToast('支取成功', 'success');
+    await openPrizeModal();
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
 init();
+
+async function init() {
+  await loadStandings();
+}
 </script>
 </body>
 </html>
