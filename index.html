@@ -79,14 +79,7 @@
   }
   .video-wrap{position:relative;width:100%;overflow:hidden;}
 
-  /* ============ 纹理覆盖层 ============ */
-  .texture-overlay{
-    position:fixed;inset:0;z-index:50;pointer-events:none;
-    background-image:url('/texture.png');
-    background-size:cover;
-    mix-blend-mode:lighten;
-    opacity:0.6;
-  }
+  /* 纹理覆盖层已在上方以渐变定义，此处不再用外部图片覆盖（避免 404 与绝对路径问题） */
 
   /* ============ 1. Hero ============ */
   .hero{
@@ -458,12 +451,13 @@
     .scroll-bar{animation:none;transform:scaleX(1);}
     video{display:none;}
     .video-wrap{background:linear-gradient(135deg, #07164f 0%, #010828 60%, #122a78 100%);}
+    .cta{background:linear-gradient(135deg, #07164f 0%, #010828 60%, #122a78 100%);min-height:70vh;}
   }
 
   /* ============ 内联编辑（简化版） ============ */
   .edit-hotzone{
     position:fixed;left:0;top:0;width:120px;height:60px;
-    z-index:100;cursor:pointer;
+    z-index:100;cursor:pointer;pointer-events:none;
   }
   .edit-toggle{
     position:fixed;left:16px;top:16px;
@@ -473,6 +467,7 @@
     font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;
     text-transform:uppercase;cursor:pointer;
     opacity:0;transition:opacity .3s ease;
+    pointer-events:auto;
     z-index:101;
   }
   .edit-hotzone:hover .edit-toggle{opacity:1;}
@@ -494,6 +489,7 @@
     font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;
     text-transform:uppercase;cursor:pointer;
     opacity:0;transition:opacity .3s ease;
+    pointer-events:auto;
     z-index:101;
   }
   .edit-hotzone:hover .export-btn{opacity:1;}
@@ -505,7 +501,7 @@
   <div class="texture-overlay" aria-hidden="true"></div>
 
   <!-- ============ 1. Hero ============ -->
-  <section class="section hero video-wrap" aria-label="首页">
+  <section class="section hero video-wrap" id="hero" aria-label="首页">
     <video class="video-bg" autoPlay loop muted playsInline
       src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260331_045634_e1c98c76-1265-4f5c-882a-4276f2080894.mp4"></video>
 
@@ -709,11 +705,11 @@
 
   <!-- 页脚 -->
   <footer class="footer">
-    <p class="footer-text">© 2026 LONE · 深空作品集 · 复刻自 ORBIS.NFT 视觉系统</p>
+    <p class="footer-text">© 2026 LONE · 深空作品集</p>
   </footer>
 
   <!-- ============ 内联编辑（简化版） ============ -->
-  <div class="edit-hotzone" aria-hidden="true">
+  <div class="edit-hotzone">
     <button class="edit-toggle" id="editToggle" type="button">编辑</button>
     <button class="export-btn" id="exportBtn" type="button">导出 HTML</button>
   </div>
