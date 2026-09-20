@@ -1,0 +1,178 @@
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { useAuthGate } from '../lib/authGate'
+import Avatar from '../components/Avatar'
+
+// 录入成绩弹窗：拖拽排序淘汰顺序 + 存活切换 + 分数预览
+function MatchEntry({ season, players, submitRef, onSubmitted }) {
+  const { showToast } = useAuth()
+  const [order, setOrder] = useState(
+    players.map((p) => ({ player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 }))
+  )
+  const [dragIndex, setDragIndex] = useState(null)
+
+  const total = order.length
+  const survivors = order.filter((r) => r.is_survivor).length
+  const dead = total - survivors
+  const topScore = survivors > 0 ? dead + 1 : dead
+  const deadList = order.filter((r) => !r.is_survivor)
+
+  const scores = order.map((r) => {
+    if (r.is_survivor) return topScore
+    return dead - deadList.indexOf(r)
+  })
+
+  const toggleSurvivor = (i) => {
+    setOrder((prev) => prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r))
+  }
+
+  const drop = (targetIndex) => {
+    if (dragIndex === null || dragIndex === targetIndex) return
+    setOrder((prev) => {
+      const next = [...prev]
+      const [moved] = next.splice(dragIndex, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+    setDragIndex(null)
+  }
+
+  const handleSubmit = async () => {
+    const results = order.map((r, i) => ({
+      player_id: r.player_id,
+      rank: i + 1,
+      is_survivor: r.is_survivor,
+    }))
+    try {
+      await api('/api/match', {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ season_id: season.id, results }),
+      })
+      onSubmitted()
+    } catch (e) {
+      showToast(e.message, 'error')
+    }
+  }
+
+  // 让外部页脚「提交」按钮始终调用最新闭包
+  submitRef.current = handleSubmit
+
+  return (
+    <>
+      <div className="sort-hint">
+        拖拽排列淘汰顺序（<b>上方 = 最后存活</b>，下方 = 先出局）。点击右侧按钮标记存活者。
+      </div>
+      <div className="sort-list">
+        {order.map((r, i) => (
+          <div
+            key={r.player_id}
+            className={`sort-item ${r.is_survivor ? 'survivor' : ''} ${dragIndex === i ? 'dragging' : ''}`}
+            draggable
+            onDragStart={() => setDragIndex(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => drop(i)}
+            onDragEnd={() => setDragIndex(null)}
+          >
+            <span className="sort-handle">⠿</span>
+            <span className="sort-rank">{i + 1}</span>
+            <Avatar url={r.avatar_url} name={r.name} className="sort-avatar" />
+            <span className="sort-name">{r.name}</span>
+            <span className="sort-score">{scores[i]}</span>
+            <button
+              className={`sort-toggle ${r.is_survivor ? 'active' : ''}`}
+              onClick={() => toggleSurvivor(i)}
+              title="存活/淘汰"
+            >
+              {r.is_survivor ? '存' : '亡'}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="score-preview">
+        <div className="score-preview-title">
+          <span>分数预览</span>
+          <span className="top-score">最高 {topScore} 分</span>
+        </div>
+        <div className="score-preview-grid">
+          {order.map((r, i) => (
+            <span key={r.player_id} className={`score-chip ${r.is_survivor ? 'survivor' : ''}`}>
+              {r.name}<span className="val">{scores[i]}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default function MatchPage() {
+  const navigate = useNavigate()
+  const { showToast, setModalContent, closeModal } = useAuth()
+  const ensureAuth = useAuthGate()
+  const [season, setSeason] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const submitRef = useRef(null)
+
+  const onSubmitted = () => {
+    closeModal()
+    showToast('成绩已录入', 'success')
+    navigate('/')
+  }
+
+  useEffect(() => {
+    api('/api/standings').then((data) => setSeason(data.season)).catch(() => setSeason(null)).finally(() => setLoading(false))
+  }, [])
+
+  const openEntry = async () => {
+    if (!season || !season.is_active) {
+      showToast('请先新建赛季', 'error')
+      navigate('/season')
+      return
+    }
+    try {
+      const players = await api(`/api/season/${season.id}/players`)
+      if (!players || players.length < 5) {
+        setModalContent('录入成绩',
+          <div style={{ textAlign: 'center', color: 'var(--paper-mute)', padding: 24, fontFamily: 'var(--font-label)', fontSize: 14 }}>本赛季参赛选手不足 5 人</div>,
+          <button className="btn btn-ghost" onClick={closeModal}>关闭</button>)
+        return
+      }
+      setModalContent('录入成绩 · 排序',
+        <MatchEntry season={season} players={players} submitRef={submitRef} onSubmitted={onSubmitted} />,
+        <>
+          <button className="btn btn-ghost" onClick={closeModal}>取消</button>
+          <button className="btn btn-primary" onClick={() => submitRef.current && submitRef.current()}>提交</button>
+        </>)
+    } catch (e) {
+      showToast(e.message, 'error')
+    }
+  }
+
+  if (loading) {
+    return <div className="standings-empty"><div className="big">加载中...</div></div>
+  }
+
+  if (!season || !season.is_active) {
+    return (
+      <div className="standings-empty">
+        <div className="seal">战</div>
+        <div className="big">尚无活跃赛季</div>
+        <div>到「赛季」页新建赛季后即可录入</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="standings">
+      <div className="standings-empty" style={{ padding: '60px 20px' }}>
+        <div className="seal">战</div>
+        <div className="big">录入成绩</div>
+        <div style={{ marginBottom: 20 }}>为「{season.name}」录入一局对局</div>
+        <button className="btn btn-primary" onClick={() => ensureAuth('录入成绩', openEntry)}>开始录入</button>
+      </div>
+    </div>
+  )
+}

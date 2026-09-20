@@ -1,31 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Routes, Route, useLocation, useNavigate, Link } from 'react-router-dom'
-import { AuthProvider, useAuth } from './lib/auth'
+import React, { useState, useEffect } from 'react'
+import { Routes, Route, useLocation, Link } from 'react-router-dom'
+import { AuthProvider } from './lib/auth'
 import { api } from './lib/api'
+
+import StandingsPage from './pages/StandingsPage'
+import MatchPage from './pages/MatchPage'
+import SeasonPage from './pages/SeasonPage'
+import PrizePage from './pages/PrizePage'
+import RosterPage from './pages/RosterPage'
 
 // ============ Icons ============
 const IconStandings = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M8 21h8M12 17v4M5 4h14v5a7 7 0 0 1-14 0V4z" />
     <path d="M5 6H2v2a3 3 0 0 0 3 3M19 6h3v2a3 3 0 0 1-3 3" />
   </svg>
 )
 
 const IconMatch = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
     <path d="M12 5v14M5 12h14" />
   </svg>
 )
 
 const IconSeason = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" />
     <path d="M16 2v4M8 2v4M3 10h18" />
   </svg>
 )
 
 const IconPrize = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v10M9 10h4.5a1.5 1.5 0 0 1 0 3H9" />
     <path d="M9 14h5" />
@@ -33,7 +39,7 @@ const IconPrize = () => (
 )
 
 const IconRoster = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="9" cy="7" r="4" />
     <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -122,129 +128,6 @@ function SeasonBadge() {
   )
 }
 
-// ============ Toast Component ============
-function Toast() {
-  const { toast } = useAuth()
-  if (!toast) return null
-  return (
-    <div className={`toast show ${toast.type || ''}`} key={toast.id}>
-      {toast.msg}
-    </div>
-  )
-}
-
-// ============ Auth Modal ============
-function AuthModal() {
-  const { modal, closeModal, handleAuthSubmit, authInputRef } = useAuth()
-
-  if (!modal || modal.type !== 'auth') return null
-
-  return (
-    <div className="overlay show" onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}>
-      <div className="modal">
-        <div className="modal-header">
-          <span className="modal-title">{modal.title}</span>
-          <button className="modal-close" onClick={closeModal}>&times;</button>
-        </div>
-        <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">房主密码</label>
-            <input
-              type="password"
-              className="form-input"
-              ref={authInputRef}
-              placeholder="输入房主密码"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAuthSubmit() }}
-            />
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={closeModal}>取消</button>
-          <button className="btn btn-primary" onClick={handleAuthSubmit}>确认</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============ Confirm Modal ============
-function ConfirmModal() {
-  const { confirmState, handleConfirm, handleConfirmCancel } = useAuth()
-
-  if (!confirmState) return null
-
-  return (
-    <div className="overlay show" onClick={(e) => { if (e.target === e.currentTarget) handleConfirmCancel() }}>
-      <div className="modal">
-        <div className="modal-header">
-          <span className="modal-title">确认操作</span>
-          <button className="modal-close" onClick={handleConfirmCancel}>&times;</button>
-        </div>
-        <div className="modal-body">
-          <div className="confirm-message">{confirmState.message}</div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={handleConfirmCancel}>取消</button>
-          <button className="btn btn-primary" onClick={handleConfirm}>确定</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ============ Placeholder Pages ============
-function StandingsPage() {
-  return (
-    <div className="standings">
-      <div className="standings-empty">
-        <div className="seal">令</div>
-        <div className="big">积分榜</div>
-        <div>页面开发中...</div>
-      </div>
-    </div>
-  )
-}
-
-function MatchPage() {
-  return (
-    <div className="standings-empty">
-      <div className="seal">战</div>
-      <div className="big">录入成绩</div>
-      <div>页面开发中...</div>
-    </div>
-  )
-}
-
-function SeasonPage() {
-  return (
-    <div className="standings-empty">
-      <div className="seal">季</div>
-      <div className="big">赛季管理</div>
-      <div>页面开发中...</div>
-    </div>
-  )
-}
-
-function PrizePage() {
-  return (
-    <div className="standings-empty">
-      <div className="seal">赏</div>
-      <div className="big">奖池</div>
-      <div>页面开发中...</div>
-    </div>
-  )
-}
-
-function RosterPage() {
-  return (
-    <div className="standings-empty">
-      <div className="seal">册</div>
-      <div className="big">花名册</div>
-      <div>页面开发中...</div>
-    </div>
-  )
-}
-
 // ============ App Layout ============
 function AppLayout() {
   return (
@@ -290,11 +173,6 @@ function AppLayout() {
 
       {/* 底部导航栏 */}
       <BottomNav />
-
-      {/* 全局组件 */}
-      <Toast />
-      <AuthModal />
-      <ConfirmModal />
     </>
   )
 }
