@@ -48,13 +48,13 @@ export function getDefaultSeasonName() {
   return `${year}年第${week}周`;
 }
 
-// 处理头像 URL（相对路径补全）
+// 处理头像 URL：站内相对路径统一解析为根绝对路径，
+// 这样应用部署在任意子路径（如 /scoring/）下头像都不会 404
 export function resolveAvatarUrl(url) {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  // 如果是相对路径如 ./avatars/1-fanmenglong.jpg，直接返回
-  // 在同域部署时相对路径可以正常工作
-  return url;
+  if (/^https?:\/\//i.test(url) || url.startsWith('//') || url.startsWith('data:')) return url;
+  if (url.startsWith('/')) return url;
+  return '/' + url.replace(/^\.?\//, '');
 }
 
 // 导出 API 端点常量
