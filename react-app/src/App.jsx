@@ -168,7 +168,7 @@ function AppLayout() {
         </div>
 
         {/* 页脚 */}
-        <div className="footer">心诚则灵 · 战绩为凭</div>
+        <div className="footer">比赛第一 · 友谊长存</div>
       </div>
 
       {/* 底部导航栏 */}
