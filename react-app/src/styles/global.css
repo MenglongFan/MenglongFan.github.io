@@ -1,0 +1,924 @@
+/* ============ 设计令牌：朱砂将帅帐 ============ */
+:root{
+  --void:#0d0d12;
+  --abyss:#12121a;
+  --ink:#161620;
+  --slate:#1a1a28;
+  --card:#1e1e2e;
+  --paper:#ede0c4;
+  --paper-bright:#f4e9d0;
+  --paper-dim:rgba(237,224,196,0.78);
+  --paper-mute:rgba(237,224,196,0.45);
+  --paper-faint:rgba(237,224,196,0.1);
+  --paper-ghost:rgba(237,224,196,0.04);
+  --cinnabar:#8B1A1A;
+  --cinnabar-bright:#c4392c;
+  --cinnabar-glow:rgba(139,26,26,0.3);
+  --vermilion:#d4422e;
+  --gold:#bfa15a;
+  --gold-bright:#e0c478;
+  --gold-glow:rgba(191,161,90,0.25);
+  --jade:#2d6b4f;
+  --jade-bright:#4a9c6e;
+  --border:rgba(237,224,196,0.12);
+  --border-bright:rgba(237,224,196,0.22);
+  --font-brush:"Ma Shan Zheng",cursive;
+  --font-serif:"Noto Serif SC",serif;
+  --font-label:"ZCOOL XiaoWei",serif;
+  --radius:6px;
+  --shadow-sm:0 2px 12px rgba(0,0,0,0.5);
+  --shadow:0 4px 24px rgba(0,0,0,0.6);
+  --shadow-lg:0 12px 48px rgba(0,0,0,0.7);
+  --bottom-nav-h:60px;
+}
+
+/* ============ Reset ============ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--void);color:var(--paper);font-family:var(--font-serif);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
+body{
+  background:
+    radial-gradient(ellipse 80% 50% at 30% 0%, rgba(139,26,26,0.1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(45,107,79,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 50% at 50% 50%, rgba(191,161,90,0.02) 0%, transparent 70%),
+    linear-gradient(180deg, var(--void) 0%, var(--abyss) 100%);
+  min-height:100vh;
+  position:relative;
+}
+::selection{background:var(--cinnabar);color:var(--paper-bright);}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;}
+input{font-family:inherit;}
+
+/* ============ 纸纹噪点 ============ */
+.noise{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  opacity:0.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ 山峦剪影 ============ */
+.mountains{
+  position:fixed;bottom:0;left:0;right:0;z-index:0;pointer-events:none;
+  width:100%;height:120px;opacity:0.08;
+}
+
+/* ============ 朱砂角落 ============ */
+.ink-bloom{
+  position:fixed;z-index:0;pointer-events:none;
+  border-radius:50%;filter:blur(40px);
+}
+.ink-bloom.tl{top:-80px;left:-80px;width:300px;height:300px;background:radial-gradient(circle, var(--cinnabar) 0%, transparent 65%);opacity:0.08;}
+.ink-bloom.br{bottom:-60px;right:-60px;width:260px;height:260px;background:radial-gradient(circle, var(--jade) 0%, transparent 65%);opacity:0.06;}
+.ink-bloom.mid{top:40%;right:-100px;width:200px;height:200px;background:radial-gradient(circle, var(--gold) 0%, transparent 65%);opacity:0.04;}
+
+/* ============ 主容器 ============ */
+.app{position:relative;z-index:2;max-width:680px;margin:0 auto;padding:0 20px;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ============ 页头：军帐幡旗 ============ */
+.header{
+  padding:36px 0 20px;text-align:center;
+  position:relative;
+}
+.header::before,.header::after{
+  content:'';position:absolute;bottom:0;height:1px;
+  background:linear-gradient(90deg, transparent, var(--cinnabar) 40%, var(--cinnabar) 60%, transparent);
+  opacity:0.4;
+}
+.header::before{left:10%;right:10%;}
+.header::after{left:20%;right:20%;bottom:-4px;opacity:0.2;}
+
+.header-ornament{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  margin-bottom:4px;
+}
+.header-ornament .line{
+  width:40px;height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold));
+  opacity:0.5;
+}
+.header-ornament .line.r{background:linear-gradient(90deg, var(--gold), transparent);}
+.header-ornament .diamond{
+  width:6px;height:6px;background:var(--gold);
+  transform:rotate(45deg);opacity:0.6;
+}
+
+.header-title{
+  font-family:var(--font-brush);
+  font-size:38px;color:var(--vermilion);letter-spacing:0.2em;
+  text-shadow:0 0 40px rgba(196,57,44,0.3), 0 2px 4px rgba(0,0,0,0.5);
+  animation:revealDown .8s cubic-bezier(.22,1,.36,1);
+  position:relative;
+}
+.header-sub{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);letter-spacing:0.35em;
+  margin-top:8px;
+  animation:fadeIn 1s ease .2s backwards;
+}
+
+.season-badge{
+  display:inline-flex;align-items:center;gap:8px;margin-top:14px;
+  padding:6px 20px;
+  border:1px solid var(--gold);
+  border-radius:0;
+  font-family:var(--font-label);
+  font-size:13px;color:var(--gold-bright);
+  letter-spacing:0.08em;
+  background:linear-gradient(135deg, rgba(191,161,90,0.08), rgba(191,161,90,0.02));
+  transition:all .3s;
+  position:relative;
+  clip-path:polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+  animation:fadeIn 1s ease .4s backwards;
+}
+.season-badge.inactive{border-color:var(--paper-mute);color:var(--paper-mute);background:transparent;}
+.season-badge .dot{
+  width:6px;height:6px;border-radius:50%;background:var(--gold-bright);
+  animation:breathe 2.5s ease infinite;
+  box-shadow:0 0 8px var(--gold-glow);
+}
+.season-badge.inactive .dot{background:var(--paper-mute);box-shadow:none;animation:none;}
+
+/* ============ 排名榜 ============ */
+.standings{
+  flex:1;
+  padding:12px 0;
+}
+
+.standings-empty{
+  text-align:center;padding:80px 20px;
+  color:var(--paper-mute);font-size:13px;letter-spacing:0.1em;
+  animation:fadeIn .6s ease;
+}
+.standings-empty .seal{
+  width:80px;height:80px;margin:0 auto 24px;
+  border:2px solid var(--cinnabar);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brush);font-size:32px;color:var(--cinnabar);
+  opacity:0.15;
+  border-radius:8px;
+  transform:rotate(-3deg);
+}
+.standings-empty .big{
+  font-family:var(--font-brush);font-size:24px;color:var(--paper-dim);
+  margin-bottom:8px;
+}
+
+/* ============ 骨架屏 ============ */
+.skeleton-row{
+  display:flex;align-items:center;gap:14px;
+  padding:18px 16px;
+}
+.skeleton-bar{
+  background:var(--paper-ghost);
+  border-radius:3px;
+  animation:shimmer 1.8s ease infinite;
+}
+.skeleton-avatar{width:40px;height:40px;border-radius:50%;}
+.skeleton-name{flex:1;height:14px;}
+.skeleton-score{width:48px;height:22px;}
+
+/* ============ 排名行：军帖样式 ============ */
+.rank-row{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 16px;
+  border-bottom:1px solid var(--paper-ghost);
+  cursor:pointer;transition:all .3s cubic-bezier(.22,1,.36,1);
+  position:relative;
+  animation:slideIn .5s cubic-bezier(.22,1,.36,1) backwards;
+}
+.rank-row:hover{background:var(--paper-ghost);}
+.rank-row.expanded{background:var(--paper-ghost);}
+
+/* 头像 */
+.rank-avatar{
+  width:40px;height:40px;border-radius:50%;
+  flex-shrink:0;
+  overflow:hidden;
+  border:2px solid var(--border);
+  transition:all .3s;
+  position:relative;
+  background:var(--paper-ghost);
+}
+.rank-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+.rank-avatar .avatar-placeholder{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brush);font-size:18px;color:var(--paper-mute);
+  background:var(--paper-ghost);
+}
+.rank-row:hover .rank-avatar{border-color:var(--border-bright);}
+
+/* 前三名头像光晕 */
+.rank-row:nth-child(1) .rank-avatar{
+  border-color:var(--cinnabar);
+  box-shadow:0 0 12px var(--cinnabar-glow);
+}
+.rank-row:nth-child(2) .rank-avatar{
+  border-color:var(--paper-dim);
+  box-shadow:0 0 8px rgba(237,224,196,0.15);
+}
+.rank-row:nth-child(3) .rank-avatar{
+  border-color:var(--gold);
+  box-shadow:0 0 10px var(--gold-glow);
+}
+
+.rank-seal{
+  position:absolute;
+  top:-4px;left:-4px;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:var(--card);
+  border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brush);font-size:11px;
+  color:var(--paper-mute);
+  z-index:1;
+}
+.rank-row:nth-child(1) .rank-seal{border-color:var(--cinnabar);color:var(--vermilion);background:var(--void);}
+.rank-row:nth-child(2) .rank-seal{border-color:var(--paper-dim);color:var(--paper-bright);background:var(--void);}
+.rank-row:nth-child(3) .rank-seal{border-color:var(--gold);color:var(--gold-bright);background:var(--void);}
+
+.rank-info{flex:1;min-width:0;}
+.rank-name{
+  font-size:16px;font-weight:600;color:var(--paper-bright);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:0.03em;
+}
+.rank-meta{
+  font-family:var(--font-label);
+  font-size:11px;color:var(--paper-mute);margin-top:4px;
+  letter-spacing:0.06em;
+  display:flex;align-items:center;gap:6px;
+}
+.rank-meta .sep{opacity:0.4;}
+.rank-meta .survival{color:var(--gold);}
+
+.rank-score{
+  font-family:var(--font-brush);
+  font-size:28px;color:var(--vermilion);
+  flex-shrink:0;min-width:56px;text-align:right;
+  line-height:1;
+  transition:all .3s;
+  text-shadow:0 0 20px rgba(196,57,44,0.15);
+}
+.rank-row:hover .rank-score{transform:scale(1.06);}
+.rank-score .unit{
+  font-family:var(--font-label);
+  font-size:10px;color:var(--paper-mute);
+  display:block;text-align:center;margin-top:2px;
+  text-shadow:none;
+}
+
+/* ============ 展开明细 ============ */
+.rank-detail{
+  max-height:0;overflow:hidden;
+  padding:0 16px 0 70px;
+  background:rgba(0,0,0,0.25);
+  transition:max-height .4s cubic-bezier(.22,1,.36,1);
+}
+.rank-detail.show{max-height:500px;padding:10px 16px 16px 70px;}
+
+.detail-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  border-bottom:1px solid var(--paper-ghost);
+}
+.detail-row:last-child{border-bottom:none;}
+.detail-row .stamp{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:3px;
+  font-size:11px;font-weight:700;font-family:var(--font-serif);
+  margin-right:8px;
+}
+.detail-row .stamp.alive{background:rgba(191,161,90,0.15);color:var(--gold-bright);border:1px solid rgba(191,161,90,0.3);}
+.detail-row .stamp.dead{background:rgba(237,224,196,0.04);color:var(--paper-mute);border:1px solid var(--border);}
+.detail-row .score-val{color:var(--vermilion);font-weight:700;font-family:var(--font-brush);font-size:16px;}
+
+/* ============ 弹窗：军帖卷轴 ============ */
+.overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(5,5,10,0.8);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;
+  padding:16px;
+}
+.overlay.show{display:flex;animation:fadeIn .25s ease;}
+
+.modal{
+  background:linear-gradient(180deg, var(--card) 0%, var(--slate) 100%);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  width:100%;max-width:480px;max-height:85vh;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  box-shadow:var(--shadow-lg);
+  animation:scrollOpen .4s cubic-bezier(.22,1,.36,1);
+  position:relative;
+}
+/* 卷轴装饰角 */
+.modal::before,.modal::after{
+  content:'';position:absolute;width:24px;height:24px;
+  border:1px solid var(--gold);
+  opacity:0.3;
+  pointer-events:none;
+}
+.modal::before{top:8px;left:8px;border-right:none;border-bottom:none;}
+.modal::after{bottom:8px;right:8px;border-left:none;border-top:none;}
+
+.modal-header{
+  padding:18px 24px;
+  border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  position:relative;
+}
+.modal-header::after{
+  content:'';position:absolute;bottom:-1px;left:24px;right:24px;height:1px;
+  background:linear-gradient(90deg, transparent, var(--cinnabar) 30%, var(--cinnabar) 70%, transparent);
+  opacity:0.3;
+}
+.modal-title{
+  font-family:var(--font-brush);font-size:20px;color:var(--vermilion);
+  letter-spacing:0.1em;
+}
+.modal-close{
+  background:none;border:none;color:var(--paper-mute);
+  font-size:24px;cursor:pointer;padding:0 4px;
+  transition:all .2s;line-height:1;
+}
+.modal-close:hover{color:var(--paper-bright);transform:rotate(90deg);}
+.modal-body{
+  flex:1;overflow-y:auto;
+  padding:24px;
+}
+.modal-body::-webkit-scrollbar{width:3px;}
+.modal-body::-webkit-scrollbar-track{background:transparent;}
+.modal-body::-webkit-scrollbar-thumb{background:var(--paper-faint);border-radius:2px;}
+.modal-footer{
+  padding:14px 24px;
+  border-top:1px solid var(--border);
+  display:flex;gap:10px;justify-content:flex-end;
+  background:var(--paper-ghost);
+}
+
+/* ============ 表单元素：竹简风 ============ */
+.form-group{margin-bottom:18px;}
+.form-label{
+  display:block;font-family:var(--font-label);
+  font-size:11px;color:var(--paper-mute);
+  margin-bottom:8px;letter-spacing:0.12em;
+}
+.form-input{
+  width:100%;padding:10px 0;
+  background:transparent;
+  border:none;
+  border-bottom:1px solid var(--border);
+  color:var(--paper-bright);font-size:15px;font-weight:600;
+  font-family:var(--font-serif);
+  transition:all .3s;
+  border-radius:0;
+}
+.form-input:focus{outline:none;border-bottom-color:var(--cinnabar);}
+.form-input::placeholder{color:var(--paper-mute);opacity:0.5;font-weight:400;}
+
+/* ============ 按钮：印章方块 ============ */
+.btn{
+  padding:10px 24px;
+  font-family:var(--font-serif);font-size:14px;font-weight:700;
+  cursor:pointer;
+  border:1px solid var(--border);
+  transition:all .25s cubic-bezier(.22,1,.36,1);
+  display:inline-flex;align-items:center;gap:6px;
+  border-radius:var(--radius);
+  letter-spacing:0.05em;
+  position:relative;overflow:hidden;
+}
+.btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%);
+  opacity:0;transition:opacity .25s;
+}
+.btn:hover::before{opacity:1;}
+
+.btn-primary{
+  background:var(--cinnabar);color:var(--paper-bright);border-color:var(--cinnabar);
+  box-shadow:0 2px 12px var(--cinnabar-glow);
+}
+.btn-primary:hover{background:var(--cinnabar-bright);transform:translateY(-1px);box-shadow:0 4px 20px var(--cinnabar-glow);}
+.btn-primary:active{transform:translateY(0);box-shadow:0 2px 8px var(--cinnabar-glow);}
+.btn-primary:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none;background:var(--cinnabar);}
+
+.btn-ghost{
+  background:transparent;color:var(--paper-mute);
+}
+.btn-ghost:hover{color:var(--paper-bright);border-color:var(--paper-mute);}
+
+.btn-gold{
+  background:transparent;color:var(--gold-bright);border-color:var(--gold);
+}
+.btn-gold:hover{background:var(--gold);color:var(--void);}
+
+/* ============ 玩家选择：点兵卡 ============ */
+.player-pick-list{display:flex;flex-direction:column;gap:6px;}
+.player-pick{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  cursor:pointer;transition:all .25s;
+  background:var(--paper-ghost);
+}
+.player-pick:hover{border-color:var(--border-bright);background:rgba(237,224,196,0.06);}
+.player-pick.selected{
+  border-color:var(--cinnabar);background:rgba(139,26,26,0.08);
+}
+.player-pick .check{
+  width:24px;height:24px;
+  border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .25s;
+  border-radius:4px;
+  background:var(--void);
+}
+.player-pick.selected .check{
+  background:var(--cinnabar);border-color:var(--cinnabar);
+  box-shadow:0 0 8px var(--cinnabar-glow);
+}
+.player-pick .check svg{opacity:0;transform:scale(0.3);transition:all .25s;}
+.player-pick.selected .check svg{opacity:1;transform:scale(1);}
+.player-pick label{flex:1;cursor:pointer;font-size:15px;font-weight:600;color:var(--paper-bright);}
+
+.pick-avatar{
+  width:32px;height:32px;border-radius:50%;
+  flex-shrink:0;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  background:var(--paper-ghost);
+}
+.pick-avatar img{width:100%;height:100%;object-fit:cover;}
+
+.pick-actions{display:flex;gap:8px;margin-bottom:10px;}
+.pick-actions button{
+  font-family:var(--font-label);font-size:11px;
+  padding:6px 16px;border-radius:var(--radius);
+  border:1px solid var(--border);background:transparent;
+  color:var(--paper-mute);cursor:pointer;transition:all .2s;
+  letter-spacing:0.08em;
+}
+.pick-actions button:hover{color:var(--gold-bright);border-color:var(--gold);}
+
+.player-count{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  padding:12px 4px;letter-spacing:0.1em;
+}
+.player-count.warn{color:var(--vermilion);}
+.player-count.ok{color:var(--jade-bright);}
+
+/* ============ 淘汰排序：战报 ============ */
+.sort-hint{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  margin-bottom:16px;line-height:1.8;
+  padding:12px 16px;
+  background:var(--paper-ghost);
+  border-left:2px solid var(--gold);
+  border-radius:0 var(--radius) var(--radius) 0;
+}
+.sort-hint b{color:var(--gold-bright);font-weight:700;}
+
+.sort-list{display:flex;flex-direction:column;gap:6px;}
+.sort-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--paper-ghost);
+  transition:all .25s;
+  animation:fadeIn .3s ease;
+}
+.sort-item.survivor{
+  border-color:var(--gold);
+  background:rgba(191,161,90,0.06);
+}
+.sort-item.dragging{opacity:0.3;transform:scale(0.97);}
+.sort-handle{
+  cursor:grab;color:var(--paper-mute);
+  flex-shrink:0;padding:0 2px;
+  transition:color .2s;
+  font-size:16px;
+  line-height:1;
+}
+.sort-handle:hover{color:var(--paper-bright);}
+.sort-handle:active{cursor:grabbing;}
+.sort-rank{
+  font-family:var(--font-brush);font-size:20px;
+  width:30px;text-align:center;flex-shrink:0;
+  color:var(--gold-bright);
+}
+.sort-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.sort-avatar img{width:100%;height:100%;object-fit:cover;}
+.sort-name{flex:1;font-size:15px;font-weight:600;color:var(--paper-bright);}
+.sort-score{
+  font-family:var(--font-brush);font-size:24px;
+  color:var(--vermilion);width:40px;text-align:right;flex-shrink:0;
+}
+.sort-toggle{
+  width:34px;height:34px;border-radius:var(--radius);
+  border:1px solid var(--border);background:transparent;
+  color:var(--paper-mute);font-size:14px;font-weight:700;cursor:pointer;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  transition:all .25s;
+  font-family:var(--font-serif);
+}
+.sort-toggle:hover{border-color:var(--border-bright);color:var(--paper-bright);}
+.sort-toggle.active{
+  background:var(--gold);color:var(--void);border-color:var(--gold);
+  box-shadow:0 0 12px var(--gold-glow);
+}
+
+.score-preview{
+  margin-top:18px;padding:16px;
+  background:rgba(0,0,0,0.3);border-radius:var(--radius);
+  border:1px solid var(--paper-ghost);
+}
+.score-preview-title{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  margin-bottom:12px;letter-spacing:0.1em;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.score-preview-title .top-score{color:var(--gold-bright);font-weight:700;font-family:var(--font-serif);font-size:14px;}
+.score-preview-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.score-chip{
+  padding:6px 14px;border-radius:var(--radius);
+  font-size:13px;font-weight:600;
+  background:var(--paper-faint);
+  transition:all .2s;
+}
+.score-chip.survivor{
+  background:rgba(191,161,90,0.12);color:var(--gold-bright);
+  border:1px solid rgba(191,161,90,0.25);
+}
+.score-chip .val{color:var(--vermilion);margin-left:6px;font-family:var(--font-brush);font-size:15px;}
+
+/* ============ 花名册 ============ */
+.roster-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:6px;
+  background:var(--paper-ghost);
+  transition:all .2s;
+}
+.roster-item:hover{border-color:var(--border-bright);}
+.roster-avatar{
+  width:32px;height:32px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.roster-avatar img{width:100%;height:100%;object-fit:cover;}
+.roster-item input{
+  flex:1;background:transparent;border:none;color:var(--paper-bright);
+  font-size:15px;font-weight:600;font-family:var(--font-serif);
+  padding:4px 0;
+}
+.roster-item input:focus{outline:none;}
+.roster-del{
+  width:30px;height:30px;border-radius:var(--radius);
+  border:1px solid var(--border);background:transparent;
+  color:var(--paper-mute);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;flex-shrink:0;
+}
+.roster-del:hover{color:var(--vermilion);border-color:var(--cinnabar);background:rgba(139,26,26,0.08);}
+
+/* ============ 赛季列表 ============ */
+.season-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:16px;
+  border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:6px;
+  background:var(--paper-ghost);
+  transition:all .2s;
+}
+.season-item.active{border-color:var(--gold);background:rgba(191,161,90,0.05);}
+.season-item .s-name{font-size:15px;font-weight:600;color:var(--paper-bright);}
+.season-item .s-meta{font-family:var(--font-label);font-size:11px;color:var(--paper-mute);margin-top:4px;letter-spacing:0.05em;}
+.season-item .s-matches{font-family:var(--font-brush);font-size:16px;color:var(--gold-bright);}
+.season-item .s-actions{display:flex;align-items:center;gap:10px;}
+.season-item .s-btn{
+  padding:6px 16px;font-size:12px;border-radius:var(--radius);
+  border:1px solid var(--cinnabar);background:transparent;
+  color:var(--vermilion);cursor:pointer;transition:all .2s;font-weight:700;
+  font-family:var(--font-serif);
+}
+.season-item .s-btn:hover{background:var(--cinnabar);color:var(--paper-bright);}
+.season-item .s-btn.gold{border-color:var(--gold);color:var(--gold-bright);}
+.season-item .s-btn.gold:hover{background:var(--gold);color:var(--void);}
+
+/* ============ 奖池弹窗 ============ */
+.prize-total{
+  text-align:center;
+  padding:24px 0 20px;
+  position:relative;
+}
+.prize-total::after{
+  content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity:0.3;
+}
+.prize-total .label{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  letter-spacing:0.2em;
+  margin-bottom:8px;
+}
+.prize-total .amount{
+  font-family:var(--font-brush);
+  font-size:52px;
+  color:var(--gold-bright);
+  line-height:1;
+  text-shadow:0 0 30px var(--gold-glow);
+}
+.prize-total .amount .yuan{
+  font-size:24px;
+  margin-left:4px;
+  color:var(--gold);
+  opacity:0.7;
+}
+
+.prize-section{
+  margin-top:20px;
+}
+.prize-section-title{
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  letter-spacing:0.15em;
+  margin-bottom:10px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--paper-ghost);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.prize-section-title .count{color:var(--gold);}
+
+.contribution-list{display:flex;flex-direction:column;gap:4px;}
+.contribution-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 4px;
+  transition:all .2s;
+}
+.contribution-item:hover{background:var(--paper-ghost);border-radius:var(--radius);padding:8px 8px;}
+.contrib-rank{
+  width:20px;text-align:center;
+  font-family:var(--font-brush);font-size:14px;
+  color:var(--paper-mute);
+  flex-shrink:0;
+}
+.contribution-item:nth-child(1) .contrib-rank{color:var(--gold-bright);}
+.contribution-item:nth-child(2) .contrib-rank{color:var(--paper-dim);}
+.contribution-item:nth-child(3) .contrib-rank{color:var(--vermilion);}
+.contrib-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.contrib-avatar img{width:100%;height:100%;object-fit:cover;}
+.contrib-name{
+  flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);
+}
+.contrib-amount{
+  font-family:var(--font-brush);font-size:18px;
+  color:var(--vermilion);
+}
+
+.tx-list{display:flex;flex-direction:column;gap:2px;}
+.tx-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 4px;
+  border-bottom:1px solid var(--paper-ghost);
+}
+.tx-item:last-child{border-bottom:none;}
+.tx-info{flex:1;min-width:0;}
+.tx-type{
+  font-size:12px;font-weight:600;
+  display:inline-block;
+  padding:2px 8px;border-radius:3px;
+  margin-bottom:4px;
+}
+.tx-type.fine{background:rgba(139,26,26,0.15);color:var(--vermilion);border:1px solid rgba(139,26,26,0.3);}
+.tx-type.withdrawal{background:rgba(45,107,79,0.15);color:var(--jade-bright);border:1px solid rgba(45,107,79,0.3);}
+.tx-desc{
+  font-size:12px;color:var(--paper-mute);
+  font-family:var(--font-label);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tx-amount{
+  text-align:right;flex-shrink:0;
+}
+.tx-amount .val{
+  font-family:var(--font-brush);font-size:18px;
+  display:block;
+}
+.tx-amount .val.positive{color:var(--vermilion);}
+.tx-amount .val.negative{color:var(--jade-bright);}
+.tx-amount .balance{
+  font-size:11px;color:var(--paper-mute);
+  font-family:var(--font-label);
+}
+
+.prize-empty{
+  text-align:center;padding:24px;
+  color:var(--paper-mute);font-size:13px;
+  font-family:var(--font-label);
+}
+
+.withdraw-hint{
+  font-size:12px;color:var(--paper-mute);
+  font-family:var(--font-label);
+  margin-bottom:12px;
+  padding:10px 14px;
+  background:var(--paper-ghost);
+  border-radius:var(--radius);
+  border-left:2px solid var(--jade);
+}
+.withdraw-hint b{color:var(--jade-bright);font-weight:700;}
+
+/* ============ 赛季结束罚金展示 ============ */
+.fine-result{
+  margin-top:16px;
+  padding:16px;
+  background:rgba(139,26,26,0.08);
+  border:1px solid rgba(139,26,26,0.2);
+  border-radius:var(--radius);
+}
+.fine-result-title{
+  font-family:var(--font-brush);
+  font-size:16px;color:var(--vermilion);
+  margin-bottom:12px;
+  text-align:center;
+}
+.fine-result-total{
+  text-align:center;
+  font-family:var(--font-label);
+  font-size:12px;color:var(--paper-mute);
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(139,26,26,0.15);
+}
+.fine-result-total b{
+  color:var(--gold-bright);
+  font-family:var(--font-brush);
+  font-size:20px;
+}
+.fine-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid rgba(139,26,26,0.1);
+}
+.fine-item:last-child{border-bottom:none;}
+.fine-avatar{
+  width:28px;height:28px;border-radius:50%;
+  overflow:hidden;
+  border:1.5px solid var(--border);
+  flex-shrink:0;
+  background:var(--paper-ghost);
+}
+.fine-avatar img{width:100%;height:100%;object-fit:cover;}
+.fine-name{flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);}
+.fine-amount{font-family:var(--font-brush);font-size:18px;color:var(--vermilion);}
+
+/* ============ Toast ============ */
+.toast{
+  position:fixed;top:24px;left:50%;transform:translateX(-50%);
+  z-index:300;padding:12px 32px;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--paper-bright);font-size:14px;font-weight:600;
+  opacity:0;transition:all .4s cubic-bezier(.22,1,.36,1);
+  top:-60px;border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  pointer-events:none;
+}
+.toast.show{opacity:1;top:24px;}
+.toast.error{border-color:var(--cinnabar);color:var(--vermilion);}
+.toast.success{border-color:var(--jade);color:var(--jade-bright);}
+
+/* ============ 页脚 ============ */
+.footer{
+  padding:20px 0;text-align:center;
+  font-family:var(--font-label);
+  font-size:11px;color:var(--paper-mute);letter-spacing:0.2em;
+  position:relative;
+  margin-bottom:var(--bottom-nav-h);
+}
+.footer::before{
+  content:'';position:absolute;top:0;left:30%;right:30%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ============ 底部导航栏 ============ */
+.bottom-nav{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  z-index:100;
+  height:var(--bottom-nav-h);
+  background:linear-gradient(180deg, var(--slate) 0%, var(--void) 100%);
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:stretch;
+  justify-content:center;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.5);
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.bottom-nav::before{
+  content:'';position:absolute;top:0;left:20%;right:20%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--cinnabar) 30%, var(--cinnabar) 70%, transparent);
+  opacity:0.25;
+}
+
+.bottom-nav-list{
+  display:flex;
+  max-width:680px;
+  width:100%;
+  height:100%;
+}
+
+.bottom-nav-item{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  cursor:pointer;
+  color:var(--paper-mute);
+  transition:all .25s cubic-bezier(.22,1,.36,1);
+  position:relative;
+  border:none;
+  background:transparent;
+  font-family:var(--font-label);
+  padding:0;
+}
+.bottom-nav-item:hover{
+  color:var(--paper-dim);
+}
+.bottom-nav-item.active{
+  color:var(--vermilion);
+}
+.bottom-nav-item.active::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:24px;height:2px;
+  background:var(--cinnabar);
+  border-radius:0 0 2px 2px;
+  box-shadow:0 0 8px var(--cinnabar-glow);
+}
+.bottom-nav-item svg{
+  width:20px;height:20px;
+  transition:transform .25s;
+}
+.bottom-nav-item.active svg{
+  transform:translateY(-1px) scale(1.1);
+  filter:drop-shadow(0 0 4px var(--cinnabar-glow));
+}
+.bottom-nav-item .nav-label{
+  font-size:10px;
+  letter-spacing:0.08em;
+  line-height:1;
+}
+
+/* ============ 页面内容区 ============ */
+.page-content{
+  flex:1;
+  padding-bottom:calc(var(--bottom-nav-h) + 16px);
+}
+
+/* ============ 确认弹窗 ============ */
+.confirm-message{
+  padding:8px 4px 4px;
+  font-size:15px;line-height:1.7;color:var(--paper);
+}
+
+/* ============ 响应式 ============ */
+@media(min-width:640px){
+  .header-title{font-size:46px;}
+  .bottom-nav-item svg{width:22px;height:22px;}
+}
+
+/* ============ 动画 ============ */
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes revealDown{from{opacity:0;transform:translateY(-16px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scrollOpen{from{opacity:0;transform:translateY(24px) scale(0.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes shimmer{0%{opacity:0.2;}50%{opacity:0.5;}100%{opacity:0.2;}}
+@keyframes breathe{0%,100%{opacity:0.5;transform:scale(1);}50%{opacity:1;transform:scale(1.4);}}
