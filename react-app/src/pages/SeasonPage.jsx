@@ -66,9 +66,8 @@ function StandingsView({ season, standings }) {
   return (
     <div>
       {standings.map((p, i) => (
-        <div className="rank-row" key={p.id} style={{ animationDelay: `${i * 0.04}s` }}>
+        <div className={`rank-row rank-${i + 1}`} key={p.id} style={{ animationDelay: `${i * 0.04}s` }}>
           <div className="rank-avatar">
-            <div className="rank-seal">{i + 1}</div>
             <Avatar url={p.avatar_url} name={p.name} />
           </div>
           <div className="rank-info">
@@ -80,6 +79,7 @@ function StandingsView({ season, standings }) {
             </div>
           </div>
           <div className="rank-score">{p.total_score}<span className="unit">分</span></div>
+          <div className="rank-seal">{i + 1}</div>
         </div>
       ))}
     </div>

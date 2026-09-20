@@ -83,12 +83,11 @@ export default function StandingsPage() {
       {standings.map((p, i) => (
         <div key={p.id}>
           <div
-            className={`rank-row ${expandedId === p.id ? 'expanded' : ''}`}
+            className={`rank-row rank-${i + 1} ${expandedId === p.id ? 'expanded' : ''}`}
             style={{ animationDelay: `${i * 0.06}s` }}
             onClick={() => toggleDetail(p.id)}
           >
             <div className="rank-avatar">
-              <div className="rank-seal">{i + 1}</div>
               <Avatar url={p.avatar_url} name={p.name} />
             </div>
             <div className="rank-info">
@@ -100,6 +99,7 @@ export default function StandingsPage() {
               </div>
             </div>
             <div className="rank-score">{p.total_score}<span className="unit">分</span></div>
+            <div className="rank-seal">{i + 1}</div>
           </div>
           <div className={`rank-detail ${expandedId === p.id ? 'show' : ''}`}>
             {expandedId === p.id && (

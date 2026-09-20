@@ -196,7 +196,6 @@ input{font-family:inherit;}
   overflow:hidden;
   border:2px solid var(--border);
   transition:all .3s;
-  position:relative;
   background:var(--paper-ghost);
 }
 .rank-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -208,35 +207,35 @@ input{font-family:inherit;}
 }
 .rank-row:hover .rank-avatar{border-color:var(--border-bright);}
 
-/* 前三名头像光晕 */
-.rank-row:nth-child(1) .rank-avatar{
+/* 前三名头像光晕（用显式 rank-N 类；:nth-child 在包裹层下会全部命中，不可用） */
+.rank-1 .rank-avatar{
   border-color:var(--cinnabar);
   box-shadow:0 0 12px var(--cinnabar-glow);
 }
-.rank-row:nth-child(2) .rank-avatar{
+.rank-2 .rank-avatar{
   border-color:var(--paper-dim);
   box-shadow:0 0 8px rgba(237,224,196,0.15);
 }
-.rank-row:nth-child(3) .rank-avatar{
+.rank-3 .rank-avatar{
   border-color:var(--gold);
   box-shadow:0 0 10px var(--gold-glow);
 }
 
+/* 排名印记：置于行尾 */
 .rank-seal{
-  position:absolute;
-  top:-4px;left:-4px;
-  width:20px;height:20px;
+  flex-shrink:0;
+  width:26px;height:26px;
   border-radius:50%;
   background:var(--card);
   border:1.5px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-brush);font-size:11px;
+  font-family:var(--font-brush);font-size:12px;
   color:var(--paper-mute);
-  z-index:1;
+  transition:all .3s;
 }
-.rank-row:nth-child(1) .rank-seal{border-color:var(--cinnabar);color:var(--vermilion);background:var(--void);}
-.rank-row:nth-child(2) .rank-seal{border-color:var(--paper-dim);color:var(--paper-bright);background:var(--void);}
-.rank-row:nth-child(3) .rank-seal{border-color:var(--gold);color:var(--gold-bright);background:var(--void);}
+.rank-1 .rank-seal{border-color:var(--cinnabar);color:var(--vermilion);background:var(--void);}
+.rank-2 .rank-seal{border-color:var(--paper-dim);color:var(--paper-bright);background:var(--void);}
+.rank-3 .rank-seal{border-color:var(--gold);color:var(--gold-bright);background:var(--void);}
 
 .rank-info{flex:1;min-width:0;}
 .rank-name{
