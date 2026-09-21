@@ -590,7 +590,7 @@ input{font-family:inherit;}
 }
 .roster-avatar img{width:100%;height:100%;object-fit:cover;}
 .roster-item input{
-  flex:1;background:transparent;border:none;color:var(--paper-bright);
+  flex:1;min-width:0;background:transparent;border:none;color:var(--paper-bright);
   font-size:15px;font-weight:600;font-family:var(--font-serif);
   padding:4px 0;
 }
