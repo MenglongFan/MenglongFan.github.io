@@ -2,3 +2,6 @@ node_modules
 dist
 *.local
 .DS_Store
+# Vite 加载 vite.config.js 时生成的临时文件。正常退出会自己删掉，
+# 但构建被中断（超时 / 进程被杀）时会留下来，别提交进去。
+vite.config.js.timestamp-*.mjs

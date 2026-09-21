@@ -31,7 +31,7 @@ export default function PrizePage() {
   const ensureAuth = useAuthGate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  // 流水默认折叠，只露前几条；展开后列表限高内滚（见 .tx-wrap）
+  // 流水默认折叠，只露前几条；展开后列表限高内滚（见 .fold-wrap）
   const [txOpen, setTxOpen] = useState(false)
   const withdrawRef = useRef(null)
 
@@ -161,8 +161,8 @@ export default function PrizePage() {
           </TitleTag>
           {recent_transactions.length > 0 ? (
             <>
-              <div className={`tx-wrap${canFold && !txOpen ? ' folded' : ' open'}`}>
-                <div className="tx-list">
+              <div className={`fold-wrap${canFold && !txOpen ? ' folded' : ' open'}`}>
+                <div className="tx-list fold-scroll">
                   {txVisible.map((t) => {
                     const isPositive = t.amount > 0
                     const typeLabel = t.type === 'fine' ? '罚金入账' : '支取'
@@ -187,7 +187,7 @@ export default function PrizePage() {
               {canFold && (
                 <button
                   type="button"
-                  className="tx-more"
+                  className="fold-more"
                   onClick={() => setTxOpen((v) => !v)}
                   aria-expanded={txOpen}
                 >

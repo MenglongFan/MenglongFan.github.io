@@ -62,23 +62,186 @@ function SeasonCreate({ players, submitRef }) {
   )
 }
 
-// 「赛季 → 查看」的只读榜单。和积分榜共用 RankRow，只换外层卡片。
-function StandingsView({ standings }) {
+// 空数组常量：standings 为空时保证 effect 依赖引用稳定，避免反复重跑
+const EMPTY = []
+
+// 逐局战绩默认先露几局（超过才折叠，和奖池流水的阈值同理）
+const MATCH_PREVIEW = 3
+
+/**
+ * 「赛季 → 查看」的内容，两块：
+ *  1) 个人总榜 —— 点行展开该选手的逐局战绩（复用积分榜那套 .rank-detail）
+ *  2) 整赛季逐局战绩 —— 一局一块，列出该局所有人的名次 / 得分 / 存亡
+ *
+ * 后端没有「整赛季所有对局」的接口，这里拉每个选手的 /details 后按 match_id 归并，
+ * 目的是不改 Worker、不重新部署后端。选手数就是 5-10，并行发一轮请求即可；
+ * 而且归并结果与「点行展开」共用同一份数据 —— 展开时不再发请求，点了就开。
+ */
+function SeasonDetail({ season, standings }) {
+  const [openId, setOpenId] = useState(null)
+  const [matchesOpen, setMatchesOpen] = useState(false)
+  // null = 读取中；否则是 playerId -> 逐局数组
+  const [byPlayer, setByPlayer] = useState(null)
+
+  const list = standings || EMPTY
+
   const maxScore = useMemo(
-    () => (standings || []).reduce((m, p) => Math.max(m, p.total_score || 0), 1),
-    [standings]
+    () => list.reduce((m, p) => Math.max(m, p.total_score || 0), 1),
+    [list]
   )
-  if (!standings || standings.length === 0) {
+
+  useEffect(() => {
+    if (!season || list.length === 0) { setByPlayer({}); return }
+    let alive = true
+    Promise.all(
+      list.map((p) =>
+        api(`/api/player/${p.id}/details?season_id=${season.id}`)
+          .then((d) => [p.id, d.details || []])
+          .catch(() => [p.id, []])
+      )
+    ).then((pairs) => { if (alive) setByPlayer(Object.fromEntries(pairs)) })
+    return () => { alive = false }
+  }, [season, list])
+
+  // 按 match_id 归并成「每一局」：时间倒序，局内按名次升序
+  const matches = useMemo(() => {
+    if (!byPlayer) return null
+    const map = new Map()
+    for (const p of list) {
+      for (const r of byPlayer[p.id] || []) {
+        if (!map.has(r.id)) map.set(r.id, { id: r.id, played_at: r.played_at, rows: [] })
+        // 注意 r.id 是 match_id（同一局里每个人都相同），必须另带 player_id 才能当 key
+        map.get(r.id).rows.push({ ...r, player_id: p.id, name: p.name })
+      }
+    }
+    const arr = [...map.values()]
+      .sort((a, b) => String(b.played_at).localeCompare(String(a.played_at)))
+    for (const m of arr) m.rows.sort((a, b) => a.rank - b.rank)
+    return arr
+  }, [byPlayer, list])
+
+  // match_id -> 局号。后端 matches 表没有 match_no 列，局号只能按时间倒序推：
+  // 最新的那局是最后一局。个人明细和下方「逐局战绩」共用这一份推导，
+  // 两处标的局号必然一致（played_at 精确到秒，排序是严格全序，不会串号）。
+  //
+  // 为什么非标局号不可：界面上的日期只到分钟，同一分钟内开的两局会显示成
+  // 完全一样的两行（真实数据里就有 05:15:57 和 05:15:33），不标局号根本分不清。
+  const matchNoById = useMemo(() => {
+    const m = new Map()
+    if (matches) matches.forEach((x, i) => m.set(x.id, matches.length - i))
+    return m
+  }, [matches])
+
+  if (list.length === 0) {
     return <div className="prize-empty">该赛季暂无对局记录</div>
   }
+
+  const loading = byPlayer === null
+  const matchCount = matches ? matches.length : 0
+  const canFoldMatches = matchCount > MATCH_PREVIEW
+  const shownMatches = matches
+    ? (canFoldMatches && !matchesOpen ? matches.slice(0, MATCH_PREVIEW) : matches)
+    : []
+
   return (
-    <div>
-      {standings.map((p, i) => (
-        <div className="rank-item-static" key={p.id}>
-          <RankRow player={p} rank={i + 1} maxScore={maxScore} animateIndex={i} />
-        </div>
-      ))}
-    </div>
+    <>
+      {list.map((p, i) => {
+        const open = openId === p.id
+        const rows = byPlayer ? (byPlayer[p.id] || []) : null
+        return (
+          <div
+            key={p.id}
+            className={`rank-item-static expandable${open ? ' is-open' : ''}`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={open}
+            onClick={() => setOpenId(open ? null : p.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setOpenId(open ? null : p.id)
+              }
+            }}
+          >
+            <RankRow player={p} rank={i + 1} maxScore={maxScore} animateIndex={i} />
+            <div className={`rank-detail ${open ? 'show' : ''}`}>
+              {open && (loading ? (
+                <div className="detail-note">加载中...</div>
+              ) : rows.length === 0 ? (
+                <div className="detail-note">暂无对局记录</div>
+              ) : (
+                rows.map((d) => (
+                  <div className="detail-row" key={d.id}>
+                    <span className="d-left">
+                      <span className="d-top">
+                        <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
+                          {d.is_survivor ? '存' : '亡'}
+                        </span>
+                        {matchNoById.has(d.id) && (
+                          <span className="d-no">第 {matchNoById.get(d.id)} 局</span>
+                        )}
+                      </span>
+                      <span className="d-date">
+                        {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}
+                      </span>
+                    </span>
+                    <span className="d-rank">第 {d.rank} 名</span>
+                    <span className="score-val">{d.score}分</span>
+                  </div>
+                ))
+              ))}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="match-hd">
+        <h3>逐局战绩</h3>
+        <span>{matches ? `${matchCount} 局` : '读取中'}</span>
+      </div>
+
+      {matches && matchCount === 0 && <div className="prize-empty">暂无对局记录</div>}
+
+      {matches && matchCount > 0 && (
+        <>
+          <div className={`fold-wrap${canFoldMatches && !matchesOpen ? ' folded' : ' open'}`}>
+            <div className="match-list fold-scroll">
+              {shownMatches.map((m, mi) => (
+                <div className="match-block" key={m.id}>
+                  <div className="match-block-hd">
+                    <span className="match-no">第 {matchCount - mi} 局</span>
+                    <span className="match-date">
+                      {m.played_at ? m.played_at.slice(5, 16).replace('T', ' ') : '—'}
+                    </span>
+                  </div>
+                  {m.rows.map((r) => (
+                    <div className="match-row" key={r.player_id}>
+                      <span className="m-rank">{r.rank}</span>
+                      <span className="m-name">{r.name}</span>
+                      <span className={`stamp ${r.is_survivor ? 'alive' : 'dead'}`}>
+                        {r.is_survivor ? '存' : '亡'}
+                      </span>
+                      <span className="m-score">{r.score}分</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+          {canFoldMatches && (
+            <button
+              type="button"
+              className="fold-more"
+              onClick={() => setMatchesOpen((v) => !v)}
+              aria-expanded={matchesOpen}
+            >
+              {matchesOpen ? '收起' : `展开全部 ${matchCount} 局`}
+              <i className="chev" />
+            </button>
+          )}
+        </>
+      )}
+    </>
   )
 }
 
@@ -167,7 +330,7 @@ export default function SeasonPage() {
     try {
       const data = await api(`/api/standings?season_id=${id}`)
       setModalContent(`赛季 · ${data.season ? data.season.name : ''}`,
-        <StandingsView standings={data.standings} />,
+        <SeasonDetail season={data.season} standings={data.standings} />,
         <button className="btn btn-ghost" onClick={openManager}>返回</button>)
     } catch (e) {
       showToast(e.message, 'error')
@@ -218,7 +381,6 @@ export default function SeasonPage() {
         meta={`${seasons.length} 个`}
         title="赛季管理"
         sub={activeCount > 0 ? `${activeCount} 个赛季进行中` : '新建赛季 · 查看战绩 · 结算罚金'}
-        colors={activeCount > 0 ? undefined : ['#F6E3B4', '#C9A44C', '#E9C87C', '#C9A44C', '#F6E3B4']}
       />
 
       <section className="standings">

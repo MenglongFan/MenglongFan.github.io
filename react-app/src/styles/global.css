@@ -504,7 +504,13 @@ input{font-family:inherit;}
 .detail-row .stamp.alive{background:rgba(233,200,124,0.15);color:var(--gold);border:1px solid rgba(233,200,124,0.30);}
 .detail-row .stamp.dead{background:rgba(255,255,255,0.04);color:var(--paper-mute);border:1px solid var(--border);}
 .detail-row .d-left{display:flex;align-items:center;gap:7px;min-width:0;}
+/* 存亡章 + 局号 打包成一组：宽屏时和日期并排，窄屏时整组留在第一行、日期换到第二行
+   （见文件底部 @media(max-width:360px)） */
+.detail-row .d-top{display:flex;align-items:center;gap:7px;min-width:0;}
 .detail-row .d-date{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* 局号：日期只到分钟，同一分钟内开的两局会显示成一样的两行，局号才是这一行的身份。
+   所以局号不许被压（flex-shrink:0），空间不够时让右边的日期去省略。 */
+.detail-row .d-no{flex-shrink:0;color:var(--paper-dim);font-weight:600;letter-spacing:0.02em;}
 .detail-row .d-rank{flex-shrink:0;opacity:0.8;}
 .detail-row .score-val{
   color:var(--gold);font-weight:700;
@@ -1094,10 +1100,10 @@ input{font-family:inherit;}
 .tx-amount .val.negative{color:var(--jade-bright);}
 .tx-amount .balance{font-size:11px;color:var(--paper-mute);font-family:var(--font-label);}
 
-/* ---------- 流水折叠 ----------
-   流水只增不减（当前 11 条），整列铺开会把页面撑得很长：末尾的「支取奖池」
-   被推到很远，滚动时内容还从浮动底部导航底下穿过。所以默认只露前 3 条，
-   展开后给列表**限高内滚** —— 页面高度从此不随流水条数增长。 */
+/* ---------- 可折叠小标题 ----------
+   奖池「流水」只增不减（当前 11 条），整列铺开会把页面撑得很长：末尾的
+   「支取奖池」被推到很远，滚动时内容还从浮动底部导航底下穿过。
+   所以默认只露前 3 条，展开后**限高内滚**（.fold-wrap 见下方通用块）。 */
 .prize-section-title.as-btn{
   width:100%;
   background:none;border:0;padding:0;margin:0;
@@ -1118,31 +1124,35 @@ input{font-family:inherit;}
   transition:transform .25s ease;
 }
 .prize-section-title.as-btn[aria-expanded="true"] .chev,
-.tx-more[aria-expanded="true"] .chev{transform:rotate(180deg);}
+.fold-more[aria-expanded="true"] .chev{transform:rotate(180deg);}
 
-.tx-wrap{position:relative;}
-/* 折叠态：底部渐隐，暗示下面还有内容。
-   渐隐色取 --void（#07070B）；这里不能用 var() 拼 alpha，故写死。 */
-.tx-wrap.folded::after{
+/* ---------- 通用折叠容器 ----------
+   折叠态只露前几条 + 底部渐隐；展开态给内层 .fold-scroll **限高内滚**。
+   页面高度从此不随列表条数增长。
+   用在两处：奖池「流水」（只增不减）和赛季详情的「逐局战绩」（一局一块）。
+   内层滚动器加 .fold-scroll 即可，不必是固定标签。 */
+.fold-wrap{position:relative;}
+/* 渐隐色取 --void（#07070B）；这里不能用 var() 拼 alpha，故写死 */
+.fold-wrap.folded::after{
   content:'';position:absolute;left:0;right:0;bottom:0;height:56px;
   pointer-events:none;
   background:linear-gradient(180deg,rgba(7,7,11,0) 0%,rgba(7,7,11,0.92) 84%);
 }
 /* 展开态：限高内滚。用 min() 让矮屏（46vh）和高屏（380px 封顶）都合理 */
-.tx-wrap.open .tx-list{
+.fold-wrap.open .fold-scroll{
   max-height:min(46vh,380px);
   overflow-y:auto;
-  overscroll-behavior:contain;   /* 滚到底不要把整页一起带着滚 */
+  overscroll-behavior:contain;   /* 滚到底不要把外层一起带着滚 */
   -webkit-overflow-scrolling:touch;
   padding-right:6px;
   scrollbar-width:thin;
   scrollbar-color:rgba(233,200,124,0.36) transparent;
 }
-.tx-wrap.open .tx-list::-webkit-scrollbar{width:4px;}
-.tx-wrap.open .tx-list::-webkit-scrollbar-track{background:transparent;}
-.tx-wrap.open .tx-list::-webkit-scrollbar-thumb{background:rgba(233,200,124,0.36);border-radius:2px;}
+.fold-wrap.open .fold-scroll::-webkit-scrollbar{width:4px;}
+.fold-wrap.open .fold-scroll::-webkit-scrollbar-track{background:transparent;}
+.fold-wrap.open .fold-scroll::-webkit-scrollbar-thumb{background:rgba(233,200,124,0.36);border-radius:2px;}
 
-.tx-more{
+.fold-more{
   display:flex;align-items:center;justify-content:center;
   width:100%;margin-top:10px;padding:10px 0;
   background:var(--glass);
@@ -1154,9 +1164,79 @@ input{font-family:inherit;}
   -webkit-tap-highlight-color:transparent;
   transition:background .2s ease,color .2s ease,border-color .2s ease;
 }
-.tx-more:hover{background:var(--glass-2);color:var(--gold-bright);border-color:var(--border-bright);}
-.tx-more:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
-.tx-more .chev{margin-left:2px;}
+.fold-more:hover{background:var(--glass-2);color:var(--gold-bright);border-color:var(--border-bright);}
+.fold-more:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
+.fold-more .chev{margin-left:2px;}
+
+/* ---------- 赛季详情：整赛季逐局战绩 ---------- */
+/* 只读榜的可展开行（赛季详情里用，区别于积分榜的 SpotlightCard 版本） */
+.rank-item-static.expandable{
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:border-color .2s ease,background .2s ease;
+}
+.rank-item-static.expandable:hover{border-color:rgba(233,200,124,0.30);background:var(--glass-2);}
+.rank-item-static.expandable.is-open{border-color:rgba(233,200,124,0.26);background:var(--glass-2);}
+.rank-item-static.expandable:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+.match-hd{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  margin:22px 0 10px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
+.match-hd h3{
+  margin:0;font-family:var(--font-serif);font-size:14px;font-weight:600;
+  color:var(--paper-dim);letter-spacing:0.06em;
+}
+.match-hd span{font-size:12px;color:var(--gold);font-family:var(--font-label);flex-shrink:0;}
+
+.match-block{
+  margin-bottom:10px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--glass);
+  overflow:hidden;
+}
+.match-block-hd{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;
+  background:rgba(255,255,255,0.03);
+  border-bottom:1px solid var(--paper-ghost);
+}
+.match-no{font-family:var(--font-display);font-size:13px;color:var(--gold);letter-spacing:0.06em;}
+.match-date{font-size:11px;color:var(--paper-mute);font-family:var(--font-label);flex-shrink:0;}
+
+.match-row{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 12px;
+  font-size:12px;font-family:var(--font-label);
+  border-bottom:1px solid var(--paper-ghost);
+}
+.match-row:last-child{border-bottom:none;}
+.match-row .m-rank{
+  width:16px;flex-shrink:0;text-align:center;
+  color:var(--paper-mute);
+  font-family:var(--font-display);font-size:12px;
+}
+/* .match-block-hd 占了 first-child，所以每局第一名是第 2 个孩子 */
+.match-row:nth-child(2) .m-rank{color:var(--gold);}
+.match-row .m-name{
+  flex:1;min-width:0;color:var(--paper-dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.match-row .stamp{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:6px;
+  font-size:11px;font-weight:700;font-family:var(--font-serif);
+  flex-shrink:0;
+}
+.match-row .stamp.alive{background:rgba(233,200,124,0.15);color:var(--gold);border:1px solid rgba(233,200,124,0.30);}
+.match-row .stamp.dead{background:rgba(255,255,255,0.04);color:var(--paper-mute);border:1px solid var(--border);}
+.match-row .m-score{
+  color:var(--gold);font-family:var(--font-display);font-size:14px;
+  min-width:34px;text-align:right;flex-shrink:0;
+}
 
 .prize-empty{
   text-align:center;padding:24px;
@@ -1383,6 +1463,16 @@ input{font-family:inherit;}
   .rank-row{gap:10px;padding:11px 12px;}
   .rank-detail{padding-left:46px;}
   .rank-detail.show{padding-left:46px;}
+  /* 逐局明细在窄屏拆成两行：这一行内联排下来要约 226px（实测），而明细行宽度
+     = 视口 − 136px（overlay 32 + modal-body 44 + rank-detail 60），
+     所以要 ≥371px 视口才排得下。320px 时只剩 180px，日期会被压到 17px，等于看不见。
+     断点就挂在已有的 360px 上 —— 371px 以下只有 360px 这一档真实机型，
+     361~370px 的空档现实中不存在，万一撞上也只是日期末尾多个省略号。 */
+  .detail-row .d-left{flex-direction:column;align-items:flex-start;gap:2px;}
+  .detail-row .d-date{padding-left:27px;}  /* 27 = 存亡章 20 + gap 7，让日期对齐在局号下面 */
+  /* 行间距 10 -> 6：320px 时左组要 90px，分到 89px，差 1px 就够 .d-left 溢出。
+     收紧间距让出 8px，不靠“刚好够”吃饭。 */
+  .detail-row{gap:6px;}
   .bottom-nav-item .nav-label{font-size:9.5px;letter-spacing:0.02em;}
   .bottom-nav-item svg{width:18px;height:18px;}
   .prize-total .amount{font-size:38px;}
