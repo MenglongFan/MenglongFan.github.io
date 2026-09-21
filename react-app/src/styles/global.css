@@ -372,7 +372,7 @@ input{font-family:inherit;}
   margin-bottom:8px;letter-spacing:0.12em;
 }
 .form-input{
-  width:100%;padding:10px 0;
+  width:100%;min-width:0;padding:10px 0;
   background:transparent;
   border:none;
   border-bottom:1px solid var(--border);
@@ -389,6 +389,10 @@ input{font-family:inherit;}
   padding:10px 24px;
   font-family:var(--font-serif);font-size:14px;font-weight:700;
   cursor:pointer;
+  white-space:nowrap;
+  /* .btn 带 overflow:hidden（用于内部高光扫过效果），这会让它的 flex
+     自动最小尺寸退化为 0，窄屏下会被压扁并把文字裁掉。按钮标签不该被压缩。 */
+  flex-shrink:0;
   border:1px solid var(--border);
   transition:all .25s cubic-bezier(.22,1,.36,1);
   display:inline-flex;align-items:center;gap:6px;
