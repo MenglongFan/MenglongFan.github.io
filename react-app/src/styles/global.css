@@ -22,9 +22,12 @@
   --jade-bright:#4a9c6e;
   --border:rgba(237,224,196,0.12);
   --border-bright:rgba(237,224,196,0.22);
-  --font-brush:"Ma Shan Zheng",cursive;
-  --font-serif:"Noto Serif SC",serif;
-  --font-label:"ZCOOL XiaoWei",serif;
+  /* 字体：全部自托管（OFL-1.1），不依赖 Google Fonts / 任何外部 CDN。
+     回退栈显式列出各平台中文字体，避免加载失败时退到 cursive/serif 这类
+     在中文下完全不可控的通用族。 */
+  --font-display:"Smiley Sans Oblique","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --font-serif:"Noto Serif SC Variable","Noto Serif SC","Songti SC","STSong","SimSun",serif;
+  --font-label:"Noto Serif SC Variable","Noto Serif SC","Songti SC","STSong","SimSun",serif;
   --radius:6px;
   --shadow-sm:0 2px 12px rgba(0,0,0,0.5);
   --shadow:0 4px 24px rgba(0,0,0,0.6);
@@ -34,7 +37,7 @@
 
 /* ============ Reset ============ */
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:var(--void);color:var(--paper);font-family:var(--font-serif);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;}
+html,body{background:var(--void);color:var(--paper);font-family:var(--font-serif);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;font-synthesis-weight:none;}
 body{
   background:
     radial-gradient(ellipse 80% 50% at 30% 0%, rgba(139,26,26,0.1) 0%, transparent 60%),
@@ -103,7 +106,7 @@ input{font-family:inherit;}
 }
 
 .header-title{
-  font-family:var(--font-brush);
+  font-family:var(--font-display);
   font-size:38px;color:var(--vermilion);letter-spacing:0.2em;
   text-shadow:0 0 40px rgba(196,57,44,0.3), 0 2px 4px rgba(0,0,0,0.5);
   animation:revealDown .8s cubic-bezier(.22,1,.36,1);
@@ -153,13 +156,13 @@ input{font-family:inherit;}
   width:80px;height:80px;margin:0 auto 24px;
   border:2px solid var(--cinnabar);
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-brush);font-size:32px;color:var(--cinnabar);
+  font-family:var(--font-display);font-size:32px;color:var(--cinnabar);
   opacity:0.15;
   border-radius:8px;
   transform:rotate(-3deg);
 }
 .standings-empty .big{
-  font-family:var(--font-brush);font-size:24px;color:var(--paper-dim);
+  font-family:var(--font-display);font-size:24px;color:var(--paper-dim);
   margin-bottom:8px;
 }
 
@@ -202,7 +205,7 @@ input{font-family:inherit;}
 .rank-avatar .avatar-placeholder{
   width:100%;height:100%;
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-brush);font-size:18px;color:var(--paper-mute);
+  font-family:var(--font-display);font-size:18px;color:var(--paper-mute);
   background:var(--paper-ghost);
 }
 .rank-row:hover .rank-avatar{border-color:var(--border-bright);}
@@ -229,7 +232,7 @@ input{font-family:inherit;}
   background:var(--card);
   border:1.5px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-brush);font-size:12px;
+  font-family:var(--font-display);font-size:12px;
   color:var(--paper-mute);
   transition:all .3s;
 }
@@ -253,7 +256,7 @@ input{font-family:inherit;}
 .rank-meta .survival{color:var(--gold);}
 
 .rank-score{
-  font-family:var(--font-brush);
+  font-family:var(--font-display);
   font-size:28px;color:var(--vermilion);
   flex-shrink:0;min-width:56px;text-align:right;
   line-height:1;
@@ -293,7 +296,7 @@ input{font-family:inherit;}
 }
 .detail-row .stamp.alive{background:rgba(191,161,90,0.15);color:var(--gold-bright);border:1px solid rgba(191,161,90,0.3);}
 .detail-row .stamp.dead{background:rgba(237,224,196,0.04);color:var(--paper-mute);border:1px solid var(--border);}
-.detail-row .score-val{color:var(--vermilion);font-weight:700;font-family:var(--font-brush);font-size:16px;}
+.detail-row .score-val{color:var(--vermilion);font-weight:700;font-family:var(--font-display);font-size:16px;}
 
 /* ============ 弹窗：军帖卷轴 ============ */
 .overlay{
@@ -338,7 +341,7 @@ input{font-family:inherit;}
   opacity:0.3;
 }
 .modal-title{
-  font-family:var(--font-brush);font-size:20px;color:var(--vermilion);
+  font-family:var(--font-display);font-size:20px;color:var(--vermilion);
   letter-spacing:0.1em;
 }
 .modal-close{
@@ -512,7 +515,7 @@ input{font-family:inherit;}
 .sort-handle:hover{color:var(--paper-bright);}
 .sort-handle:active{cursor:grabbing;}
 .sort-rank{
-  font-family:var(--font-brush);font-size:20px;
+  font-family:var(--font-display);font-size:20px;
   width:30px;text-align:center;flex-shrink:0;
   color:var(--gold-bright);
 }
@@ -526,7 +529,7 @@ input{font-family:inherit;}
 .sort-avatar img{width:100%;height:100%;object-fit:cover;}
 .sort-name{flex:1;font-size:15px;font-weight:600;color:var(--paper-bright);}
 .sort-score{
-  font-family:var(--font-brush);font-size:24px;
+  font-family:var(--font-display);font-size:24px;
   color:var(--vermilion);width:40px;text-align:right;flex-shrink:0;
 }
 .sort-toggle{
@@ -566,7 +569,7 @@ input{font-family:inherit;}
   background:rgba(191,161,90,0.12);color:var(--gold-bright);
   border:1px solid rgba(191,161,90,0.25);
 }
-.score-chip .val{color:var(--vermilion);margin-left:6px;font-family:var(--font-brush);font-size:15px;}
+.score-chip .val{color:var(--vermilion);margin-left:6px;font-family:var(--font-display);font-size:15px;}
 
 /* ============ 花名册 ============ */
 .roster-item{
@@ -613,7 +616,7 @@ input{font-family:inherit;}
 .season-item.active{border-color:var(--gold);background:rgba(191,161,90,0.05);}
 .season-item .s-name{font-size:15px;font-weight:600;color:var(--paper-bright);}
 .season-item .s-meta{font-family:var(--font-label);font-size:11px;color:var(--paper-mute);margin-top:4px;letter-spacing:0.05em;}
-.season-item .s-matches{font-family:var(--font-brush);font-size:16px;color:var(--gold-bright);}
+.season-item .s-matches{font-family:var(--font-display);font-size:16px;color:var(--gold-bright);}
 .season-item .s-actions{display:flex;align-items:center;gap:10px;}
 .season-item .s-btn{
   padding:6px 16px;font-size:12px;border-radius:var(--radius);
@@ -643,7 +646,7 @@ input{font-family:inherit;}
   margin-bottom:8px;
 }
 .prize-total .amount{
-  font-family:var(--font-brush);
+  font-family:var(--font-display);
   font-size:52px;
   color:var(--gold-bright);
   line-height:1;
@@ -679,7 +682,7 @@ input{font-family:inherit;}
 .contribution-item:hover{background:var(--paper-ghost);border-radius:var(--radius);padding:8px 8px;}
 .contrib-rank{
   width:20px;text-align:center;
-  font-family:var(--font-brush);font-size:14px;
+  font-family:var(--font-display);font-size:14px;
   color:var(--paper-mute);
   flex-shrink:0;
 }
@@ -698,7 +701,7 @@ input{font-family:inherit;}
   flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);
 }
 .contrib-amount{
-  font-family:var(--font-brush);font-size:18px;
+  font-family:var(--font-display);font-size:18px;
   color:var(--vermilion);
 }
 
@@ -727,7 +730,7 @@ input{font-family:inherit;}
   text-align:right;flex-shrink:0;
 }
 .tx-amount .val{
-  font-family:var(--font-brush);font-size:18px;
+  font-family:var(--font-display);font-size:18px;
   display:block;
 }
 .tx-amount .val.positive{color:var(--vermilion);}
@@ -763,7 +766,7 @@ input{font-family:inherit;}
   border-radius:var(--radius);
 }
 .fine-result-title{
-  font-family:var(--font-brush);
+  font-family:var(--font-display);
   font-size:16px;color:var(--vermilion);
   margin-bottom:12px;
   text-align:center;
@@ -778,7 +781,7 @@ input{font-family:inherit;}
 }
 .fine-result-total b{
   color:var(--gold-bright);
-  font-family:var(--font-brush);
+  font-family:var(--font-display);
   font-size:20px;
 }
 .fine-item{
@@ -796,7 +799,7 @@ input{font-family:inherit;}
 }
 .fine-avatar img{width:100%;height:100%;object-fit:cover;}
 .fine-name{flex:1;font-size:14px;font-weight:600;color:var(--paper-bright);}
-.fine-amount{font-family:var(--font-brush);font-size:18px;color:var(--vermilion);}
+.fine-amount{font-family:var(--font-display);font-size:18px;color:var(--vermilion);}
 
 /* ============ Toast ============ */
 .toast{
