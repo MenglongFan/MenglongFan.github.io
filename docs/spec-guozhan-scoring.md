@@ -1,5 +1,24 @@
 # 规格文档 · 三国杀国战积分系统
 
+> **⚠️ 已归档（2026-09-21）· 本文档描述的前端已下线**
+>
+> 本文档描述的是**旧的单文件原生版** `scoring.html`（三国水墨风格）。
+> 该文件已于 2026-09-21 从仓库移除，**线上地址 `menglongfan.github.io/scoring.html` 不再存在**。
+>
+> 当前线上前端是 **React 版**，部署在 `menglongfan.github.io/scoring/`：
+>
+> | | |
+> | --- | --- |
+> | 源码 | `react-app/`（React 18 + Vite 5 + react-router-dom HashRouter）|
+> | 构建产物 | `scoring/`（提交进仓库，GitHub Pages 直接提供）|
+> | 首页入口 | `index.html` 项目卡 2，`data-href="./scoring/"` |
+> | 部署步骤 | 见 `worker/README.md` |
+>
+> **后端部分（Cloudflare D1 + Workers、积分公式、罚金规则）完全没有变**，
+> 本文档中与后端、数据模型、评分规则、用户故事相关的内容依然有效，
+> 可直接作为 React 版的需求依据。
+> 本文正文保留原样，作为旧版前端的实现记录，不再逐处改写。
+
 ## Problem Statement
 
 线下打三国杀国战时，缺乏一个便捷的积分追踪工具。每次聚会打好几局，积分靠脑子记或纸笔写，聚会结束就丢失了。需要一个所有参与者都能通过手机访问的 Web 应用，实时查看赛季排名，并在房主授权下录入每局成绩。

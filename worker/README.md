@@ -40,24 +40,35 @@ wrangler deploy
 
 ## 6. 更新前端 API 地址
 
-编辑 `scoring.html`，将 `API_BASE` 替换为你的 Worker URL：
+前端是 React 应用，源码在 `react-app/`，API 地址写在 `react-app/src/lib/api.js`：
 
 ```js
 const API_BASE = 'https://guozhan-scoring.menglongfan.workers.dev';
 ```
 
-## 7. 推送前端
+（2026-09-21 起旧的单文件版 `scoring.html` 已下线，不再是前端。）
+
+## 7. 构建并推送前端
+
+`scoring/` 是**提交进仓库的构建产物**，GitHub Pages 直接从它提供服务。
+源码改动后必须重新构建并同步过去（`react-app/dist` 已被 gitignore，不会自动同步）：
 
 ```bash
+cd react-app
+npm run build
+rm -rf ../scoring/assets && cp -R dist/. ../scoring/
 cd ..
-git add scoring.html index.html
-git commit -m "国战积分系统：前端页面 + 作品集卡片更新"
+git add scoring index.html
+git commit -m "国战积分系统：前端更新"
 git push
 ```
 
+应用用 `HashRouter` 且 `vite.config.js` 里 `base: './'`，
+所以 `/scoring/` 这个目录路径能直接工作，**不需要任何服务端重写规则**。
+
 ## 8. 验证
 
-- 打开 `https://menglongfan.github.io/scoring.html`
-- 右下角点击日历按钮 → 输入房主密码 → 新建赛季
-- 点击花名册按钮 → 添加玩家
-- 点击录入按钮 → 选人 → 排序 → 提交
+- 打开 `https://menglongfan.github.io/scoring/`
+- 首页作品集的项目卡 2 整卡点击也应跳到这里（`data-href="./scoring/"`）
+- 底部导航依次检查：积分榜 / 录入 / 赛季 / 奖池 / 花名册
+- 录入需先在「赛季」页新建赛季（无进行中赛季时录入会被拒绝）
