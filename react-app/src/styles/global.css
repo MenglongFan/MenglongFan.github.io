@@ -1463,11 +1463,11 @@ input{font-family:inherit;}
   .rank-row{gap:10px;padding:11px 12px;}
   .rank-detail{padding-left:46px;}
   .rank-detail.show{padding-left:46px;}
-  /* 逐局明细在窄屏拆成两行：这一行内联排下来要约 226px（实测），而明细行宽度
-     = 视口 − 136px（overlay 32 + modal-body 44 + rank-detail 60），
-     所以要 ≥371px 视口才排得下。320px 时只剩 180px，日期会被压到 17px，等于看不见。
-     断点就挂在已有的 360px 上 —— 371px 以下只有 360px 这一档真实机型，
-     361~370px 的空档现实中不存在，万一撞上也只是日期末尾多个省略号。 */
+  /* 逐局明细在窄屏拆成两行：这一行内联排下来实测要约 226px，而明细行宽度只有
+     视口 − 140px 左右（overlay 32 + modal-body 44 + rank-detail 60 + 边框/滚动条若干），
+     320px 下只剩 180px，日期会被压到 17px，等于看不见。
+     内联排版要 ~366px 以上才够；360px 是 366px 以下唯一真实存在的机型宽度，
+     断点就挂在已有的 360px 上，不另造一个值。 */
   .detail-row .d-left{flex-direction:column;align-items:flex-start;gap:2px;}
   .detail-row .d-date{padding-left:27px;}  /* 27 = 存亡章 20 + gap 7，让日期对齐在局号下面 */
   /* 行间距 10 -> 6：320px 时左组要 90px，分到 89px，差 1px 就够 .d-left 溢出。
