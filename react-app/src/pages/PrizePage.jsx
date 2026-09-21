@@ -31,6 +31,8 @@ export default function PrizePage() {
   const ensureAuth = useAuthGate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  // 流水默认折叠，只露前几条；展开后列表限高内滚（见 .tx-wrap）
+  const [txOpen, setTxOpen] = useState(false)
   const withdrawRef = useRef(null)
 
   const load = async () => {
@@ -98,6 +100,15 @@ export default function PrizePage() {
 
   const { current_balance, contributions, recent_transactions } = data
 
+  // 折叠阈值：超过这个条数才值得折叠。3 条以内直接全展示，不做多余的交互。
+  const TX_PREVIEW = 3
+  const canFold = recent_transactions.length > TX_PREVIEW
+  const txVisible = canFold && !txOpen
+    ? recent_transactions.slice(0, TX_PREVIEW)
+    : recent_transactions
+  // 可折叠时标题整行就是开关（带箭头）；不可折叠时退化成普通 div，避免出现点了没反应的按钮
+  const TitleTag = canFold ? 'button' : 'div'
+
   return (
     <>
       <PageHead
@@ -105,7 +116,6 @@ export default function PrizePage() {
         meta={`${contributions.length} 人 · ${recent_transactions.length} 笔`}
         title="罚金奖池"
         sub="末尾三名罚金累积 · 跨赛季滚存"
-        colors={['#F6E3B4', '#E9C87C', '#C9A44C', '#E9C87C', '#F6E3B4']}
       />
 
       <section className="standings">
@@ -137,32 +147,55 @@ export default function PrizePage() {
         </div>
 
         <div className="prize-section">
-          <div className="prize-section-title">
+          <TitleTag
+            {...(canFold
+              ? { type: 'button', onClick: () => setTxOpen((v) => !v), 'aria-expanded': txOpen }
+              : {})}
+            className={`prize-section-title${canFold ? ' as-btn' : ''}`}
+          >
             <span>流水</span>
-            <span className="count">最近 {recent_transactions.length} 条</span>
-          </div>
+            <span className="count">
+              最近 {recent_transactions.length} 条
+              {canFold && <i className="chev" />}
+            </span>
+          </TitleTag>
           {recent_transactions.length > 0 ? (
-            <div className="tx-list">
-              {recent_transactions.map((t) => {
-                const isPositive = t.amount > 0
-                const typeLabel = t.type === 'fine' ? '罚金入账' : '支取'
-                const desc = t.type === 'fine'
-                  ? (t.season_name || '赛季罚金') + ' · ' + (t.player_name || '')
-                  : (t.description || '支取')
-                return (
-                  <div className="tx-item" key={t.id}>
-                    <div className="tx-info">
-                      <span className={`tx-type ${t.type}`}>{typeLabel}</span>
-                      <div className="tx-desc">{desc}</div>
-                    </div>
-                    <div className="tx-amount">
-                      <span className={`val ${isPositive ? 'positive' : 'negative'}`}>{isPositive ? '+' : ''}{t.amount}元</span>
-                      <span className="balance">余额 {t.balance}元</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <>
+              <div className={`tx-wrap${canFold && !txOpen ? ' folded' : ' open'}`}>
+                <div className="tx-list">
+                  {txVisible.map((t) => {
+                    const isPositive = t.amount > 0
+                    const typeLabel = t.type === 'fine' ? '罚金入账' : '支取'
+                    const desc = t.type === 'fine'
+                      ? (t.season_name || '赛季罚金') + ' · ' + (t.player_name || '')
+                      : (t.description || '支取')
+                    return (
+                      <div className="tx-item" key={t.id}>
+                        <div className="tx-info">
+                          <span className={`tx-type ${t.type}`}>{typeLabel}</span>
+                          <div className="tx-desc">{desc}</div>
+                        </div>
+                        <div className="tx-amount">
+                          <span className={`val ${isPositive ? 'positive' : 'negative'}`}>{isPositive ? '+' : ''}{t.amount}元</span>
+                          <span className="balance">余额 {t.balance}元</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {canFold && (
+                <button
+                  type="button"
+                  className="tx-more"
+                  onClick={() => setTxOpen((v) => !v)}
+                  aria-expanded={txOpen}
+                >
+                  {txOpen ? '收起' : `展开全部 ${recent_transactions.length} 条`}
+                  <i className="chev" />
+                </button>
+              )}
+            </>
           ) : <div className="prize-empty">暂无流水记录</div>}
         </div>
 
