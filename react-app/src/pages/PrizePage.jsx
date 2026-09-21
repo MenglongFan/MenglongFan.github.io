@@ -3,6 +3,9 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
+import PageHead from '../components/PageHead'
+import GoldButton from '../components/GoldButton'
+import CountUp from '../components/CountUp'
 
 function WithdrawForm({ submitRef }) {
   const [amount, setAmount] = useState('')
@@ -72,76 +75,103 @@ export default function PrizePage() {
   }
 
   if (loading) {
-    return <div className="standings-empty"><div className="big">加载中...</div></div>
+    return (
+      <>
+        <PageHead eyebrow="奖池" meta="读取中" title="罚金奖池" sub="正在同步奖池余额" />
+        <div className="standings-empty"><div className="big">加载中...</div></div>
+      </>
+    )
   }
 
   if (!data) {
-    return <div className="standings-empty"><div className="seal">赏</div><div className="big">奖池</div><div>加载失败</div></div>
+    return (
+      <>
+        <PageHead eyebrow="奖池" meta="读取失败" title="罚金奖池" sub="稍后重试" muted />
+        <div className="standings-empty">
+          <div className="seal">赏</div>
+          <div className="big">奖池</div>
+          <div>加载失败</div>
+        </div>
+      </>
+    )
   }
 
   const { current_balance, contributions, recent_transactions } = data
 
   return (
-    <div className="standings">
-      <div className="prize-total">
-        <div className="label">公共基金池</div>
-        <div className="amount">{current_balance}<span className="yuan">元</span></div>
-      </div>
+    <>
+      <PageHead
+        eyebrow="奖池"
+        meta={`${contributions.length} 人 · ${recent_transactions.length} 笔`}
+        title="罚金奖池"
+        sub="末尾三名罚金累积 · 跨赛季滚存"
+        colors={['#F6E3B4', '#E9C87C', '#C9A44C', '#E9C87C', '#F6E3B4']}
+      />
 
-      <div className="prize-section">
-        <div className="prize-section-title">
-          <span>贡献榜</span>
-          <span className="count">{contributions.length}人</span>
-        </div>
-        {contributions.length > 0 ? (
-          <div className="contribution-list">
-            {contributions.map((c, i) => (
-              <div className="contribution-item" key={c.id}>
-                <span className="contrib-rank">{i + 1}</span>
-                <Avatar url={c.avatar_url} name={c.name} className="contrib-avatar" />
-                <span className="contrib-name">{c.name}</span>
-                <span className="contrib-amount">{c.total_amount}元</span>
-              </div>
-            ))}
+      <section className="standings">
+        <div className="prize-total">
+          <div className="label">公共基金池</div>
+          <div className="amount">
+            <CountUp to={current_balance || 0} from={0} duration={1.2} />
+            <span className="yuan">元</span>
           </div>
-        ) : <div className="prize-empty">暂无贡献记录</div>}
-      </div>
-
-      <div className="prize-section">
-        <div className="prize-section-title">
-          <span>流水</span>
-          <span className="count">最近{recent_transactions.length}条</span>
         </div>
-        {recent_transactions.length > 0 ? (
-          <div className="tx-list">
-            {recent_transactions.map((t) => {
-              const isPositive = t.amount > 0
-              const typeLabel = t.type === 'fine' ? '罚金入账' : '支取'
-              const desc = t.type === 'fine'
-                ? (t.season_name || '赛季罚金') + ' · ' + (t.player_name || '')
-                : (t.description || '支取')
-              return (
-                <div className="tx-item" key={t.id}>
-                  <div className="tx-info">
-                    <span className={`tx-type ${t.type}`}>{typeLabel}</span>
-                    <div className="tx-desc">{desc}</div>
-                  </div>
-                  <div className="tx-amount">
-                    <span className={`val ${isPositive ? 'positive' : 'negative'}`}>{isPositive ? '+' : ''}{t.amount}元</span>
-                    <span className="balance">余额 {t.balance}元</span>
-                  </div>
+
+        <div className="prize-section">
+          <div className="prize-section-title">
+            <span>贡献榜</span>
+            <span className="count">{contributions.length} 人</span>
+          </div>
+          {contributions.length > 0 ? (
+            <div className="contribution-list">
+              {contributions.map((c, i) => (
+                <div className="contribution-item" key={c.id}>
+                  <span className="contrib-rank">{i + 1}</span>
+                  <Avatar url={c.avatar_url} name={c.name} className="contrib-avatar" />
+                  <span className="contrib-name">{c.name}</span>
+                  <span className="contrib-amount">{c.total_amount}元</span>
                 </div>
-              )
-            })}
-          </div>
-        ) : <div className="prize-empty">暂无流水记录</div>}
-      </div>
+              ))}
+            </div>
+          ) : <div className="prize-empty">暂无贡献记录</div>}
+        </div>
 
-      {current_balance > 0 && (
-        <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={openWithdraw}>
-          支取奖池
-        </button>
-      )}
-    </div>
+        <div className="prize-section">
+          <div className="prize-section-title">
+            <span>流水</span>
+            <span className="count">最近 {recent_transactions.length} 条</span>
+          </div>
+          {recent_transactions.length > 0 ? (
+            <div className="tx-list">
+              {recent_transactions.map((t) => {
+                const isPositive = t.amount > 0
+                const typeLabel = t.type === 'fine' ? '罚金入账' : '支取'
+                const desc = t.type === 'fine'
+                  ? (t.season_name || '赛季罚金') + ' · ' + (t.player_name || '')
+                  : (t.description || '支取')
+                return (
+                  <div className="tx-item" key={t.id}>
+                    <div className="tx-info">
+                      <span className={`tx-type ${t.type}`}>{typeLabel}</span>
+                      <div className="tx-desc">{desc}</div>
+                    </div>
+                    <div className="tx-amount">
+                      <span className={`val ${isPositive ? 'positive' : 'negative'}`}>{isPositive ? '+' : ''}{t.amount}元</span>
+                      <span className="balance">余额 {t.balance}元</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : <div className="prize-empty">暂无流水记录</div>}
+        </div>
+
+        {current_balance > 0 && (
+          <div className="cta">
+            <GoldButton variant="gold" onClick={openWithdraw}>支取奖池</GoldButton>
+          </div>
+        )}
+      </section>
+    </>
   )
 }

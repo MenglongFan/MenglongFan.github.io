@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { api, getDefaultSeasonName } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
+import PageHead from '../components/PageHead'
+import GoldButton from '../components/GoldButton'
+import RankRow from '../components/RankRow'
 
 // 新建赛季：勾选 5-10 名参赛选手
-function SeasonCreate({ players, submitRef, onBack }) {
+function SeasonCreate({ players, submitRef }) {
   const [name, setName] = useState(getDefaultSeasonName())
   const [selected, setSelected] = useState(() => new Set(players.map((p) => p.id)))
 
@@ -43,7 +46,7 @@ function SeasonCreate({ players, submitRef, onBack }) {
             <div key={p.id} className={`player-pick ${isSel ? 'selected' : ''}`} onClick={() => toggle(p.id)}>
               <Avatar url={p.avatar_url} name={p.name} className="pick-avatar" />
               <div className="check">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M20 6L9 17l-5-5" /></svg>
               </div>
               <label onClick={(e) => { e.preventDefault(); toggle(p.id) }}>{p.name}</label>
             </div>
@@ -59,29 +62,43 @@ function SeasonCreate({ players, submitRef, onBack }) {
   )
 }
 
-function StandingsView({ season, standings }) {
+// 「赛季 → 查看」的只读榜单。和积分榜共用 RankRow，只换外层卡片。
+function StandingsView({ standings }) {
+  const maxScore = useMemo(
+    () => (standings || []).reduce((m, p) => Math.max(m, p.total_score || 0), 1),
+    [standings]
+  )
   if (!standings || standings.length === 0) {
     return <div className="prize-empty">该赛季暂无对局记录</div>
   }
   return (
     <div>
       {standings.map((p, i) => (
-        <div className={`rank-row rank-${i + 1}`} key={p.id} style={{ animationDelay: `${i * 0.04}s` }}>
-          <div className="rank-avatar">
-            <Avatar url={p.avatar_url} name={p.name} />
-          </div>
-          <div className="rank-info">
-            <div className="rank-name">{p.name}</div>
-            <div className="rank-meta">
-              <span>{p.match_count}局</span>
-              <span className="sep">·</span>
-              <span className="survival">存活{p.survival_count}次</span>
-            </div>
-          </div>
-          <div className="rank-score">{p.total_score}<span className="unit">分</span></div>
-          <div className="rank-seal">{i + 1}</div>
+        <div className="rank-item-static" key={p.id}>
+          <RankRow player={p} rank={i + 1} maxScore={maxScore} animateIndex={i} />
         </div>
       ))}
+    </div>
+  )
+}
+
+// 赛季列表项：主页面和「赛季管理」弹窗共用
+function SeasonItem({ s, onEnd, onView }) {
+  return (
+    <div className={`season-item ${s.is_active ? 'active' : ''}`}>
+      <div className="s-main">
+        <div className="s-name">{s.name}</div>
+        <div className="s-meta">
+          {s.started_at ? s.started_at.slice(0, 10) : ''}
+          {s.ended_at ? ' → ' + s.ended_at.slice(0, 10) : ' · 进行中'}
+        </div>
+      </div>
+      <div className="s-actions">
+        <span className="s-matches">{s.match_count}局</span>
+        {s.is_active
+          ? <button className="s-btn" onClick={() => onEnd(s.id)}>结束</button>
+          : <button className="s-btn gold" onClick={() => onView(s.id)}>查看</button>}
+      </div>
     </div>
   )
 }
@@ -101,6 +118,20 @@ export default function SeasonPage() {
   }
   useEffect(() => { load() }, [])
 
+  // 结束罚金弹窗里的「查看奖池」需要路由跳转
+  const navigatePrize = () => { window.location.hash = '#/prize' }
+
+  const openManager = () => {
+    setModalContent('赛季管理',
+      <div>
+        {seasons.length === 0 && <div className="prize-empty">暂无赛季</div>}
+        {seasons.map((s) => (
+          <SeasonItem key={s.id} s={s} onEnd={endSeason} onView={viewSeason} />
+        ))}
+      </div>,
+      <button className="btn btn-ghost" onClick={closeModal}>完成</button>)
+  }
+
   const openCreate = async () => {
     ensureAuth('新建赛季', async () => {
       let players = []
@@ -111,7 +142,7 @@ export default function SeasonPage() {
         return
       }
       setModalContent('新建赛季',
-        <SeasonCreate players={players} submitRef={createSubmitRef} onBack={openManager} />,
+        <SeasonCreate players={players} submitRef={createSubmitRef} />,
         <>
           <button className="btn btn-ghost" onClick={openManager}>上一步</button>
           <button
@@ -132,36 +163,11 @@ export default function SeasonPage() {
     })
   }
 
-  const openManager = () => {
-    setModalContent('赛季管理',
-      <div>
-        {seasons.length === 0 && <div className="prize-empty">暂无赛季</div>}
-        {seasons.map((s) => (
-          <div className={`season-item ${s.is_active ? 'active' : ''}`} key={s.id}>
-            <div>
-              <div className="s-name">{s.name}</div>
-              <div className="s-meta">
-                {s.started_at ? s.started_at.slice(0, 10) : ''}
-                {s.ended_at ? ' → ' + s.ended_at.slice(0, 10) : ' · 进行中'}
-              </div>
-            </div>
-            <div className="s-actions">
-              <span className="s-matches">{s.match_count}局</span>
-              {s.is_active
-                ? <button className="s-btn" onClick={() => endSeason(s.id)}>结束</button>
-                : <button className="s-btn gold" onClick={() => viewSeason(s.id)}>查看</button>}
-            </div>
-          </div>
-        ))}
-      </div>,
-      <button className="btn btn-ghost" onClick={closeModal}>完成</button>)
-  }
-
   const viewSeason = async (id) => {
     try {
       const data = await api(`/api/standings?season_id=${id}`)
       setModalContent(`赛季 · ${data.season ? data.season.name : ''}`,
-        <StandingsView season={data.season} standings={data.standings} />,
+        <StandingsView standings={data.standings} />,
         <button className="btn btn-ghost" onClick={openManager}>返回</button>)
     } catch (e) {
       showToast(e.message, 'error')
@@ -192,8 +198,8 @@ export default function SeasonPage() {
                     奖池入账 <b>{result.fines.reduce((s, f) => s + f.amount, 0)}元</b> · 新余额 {result.new_balance}元
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', marginTop: 16 }}>
-                  <button className="btn btn-primary" onClick={() => { closeModal(); navigatePrize() }}>查看奖池</button>
+                <div className="cta" style={{ marginTop: 16 }}>
+                  <GoldButton onClick={() => { closeModal(); navigatePrize() }}>查看奖池</GoldButton>
                 </div>
               </>,
               <button className="btn btn-ghost" onClick={openManager}>返回</button>)
@@ -203,34 +209,35 @@ export default function SeasonPage() {
     })
   }
 
-  // 结束罚金弹窗里的「查看奖池」需要路由跳转
-  const navigatePrize = () => { window.location.hash = '#/prize' }
+  const activeCount = seasons.filter((s) => s.is_active).length
 
   return (
-    <div className="standings">
-      <h2 className="modal-title" style={{ margin: '8px 4px 16px' }}>赛季</h2>
+    <>
+      <PageHead
+        eyebrow="赛季"
+        meta={`${seasons.length} 个`}
+        title="赛季管理"
+        sub={activeCount > 0 ? `${activeCount} 个赛季进行中` : '新建赛季 · 查看战绩 · 结算罚金'}
+        colors={activeCount > 0 ? undefined : ['#F6E3B4', '#C9A44C', '#E9C87C', '#C9A44C', '#F6E3B4']}
+      />
 
-      {seasons.map((s) => (
-        <div className={`season-item ${s.is_active ? 'active' : ''}`} key={s.id}>
-          <div>
-            <div className="s-name">{s.name}</div>
-            <div className="s-meta">
-              {s.started_at ? s.started_at.slice(0, 10) : ''}
-              {s.ended_at ? ' → ' + s.ended_at.slice(0, 10) : ' · 进行中'}
-            </div>
+      <section className="standings">
+        {seasons.length === 0 && (
+          <div className="standings-empty" style={{ padding: '40px 20px' }}>
+            <div className="seal">季</div>
+            <div className="big">暂无赛季</div>
+            <div>新建一个赛季开始记录</div>
           </div>
-          <div className="s-actions">
-            <span className="s-matches">{s.match_count}局</span>
-            {s.is_active
-              ? <button className="s-btn" onClick={() => endSeason(s.id)}>结束</button>
-              : <button className="s-btn gold" onClick={() => viewSeason(s.id)}>查看</button>}
-          </div>
+        )}
+
+        {seasons.map((s) => (
+          <SeasonItem key={s.id} s={s} onEnd={endSeason} onView={viewSeason} />
+        ))}
+
+        <div className="cta" style={{ marginTop: seasons.length ? 16 : 0 }}>
+          <GoldButton onClick={openCreate}>新建赛季</GoldButton>
         </div>
-      ))}
-
-      <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={openCreate}>
-        新建赛季
-      </button>
-    </div>
+      </section>
+    </>
   )
 }

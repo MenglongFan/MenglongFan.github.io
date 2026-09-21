@@ -4,6 +4,8 @@ import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
+import PageHead from '../components/PageHead'
+import GoldButton from '../components/GoldButton'
 
 // 录入成绩弹窗：拖拽排序淘汰顺序 + 存活切换 + 分数预览
 function MatchEntry({ season, players, submitRef, onSubmitted }) {
@@ -94,7 +96,7 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
       <div className="score-preview">
         <div className="score-preview-title">
           <span>分数预览</span>
-          <span className="top-score">最高 {topScore} 分</span>
+          <span className="top-score">存活 {survivors} · 淘汰 {dead} · 最高 {topScore} 分</span>
         </div>
         <div className="score-preview-grid">
           {order.map((r, i) => (
@@ -136,7 +138,7 @@ export default function MatchPage() {
       const players = await api(`/api/season/${season.id}/players`)
       if (!players || players.length < 5) {
         setModalContent('录入成绩',
-          <div style={{ textAlign: 'center', color: 'var(--paper-mute)', padding: 24, fontFamily: 'var(--font-label)', fontSize: 14 }}>本赛季参赛选手不足 5 人</div>,
+          <div className="detail-note" style={{ padding: 24, fontSize: 14 }}>本赛季参赛选手不足 5 人</div>,
           <button className="btn btn-ghost" onClick={closeModal}>关闭</button>)
         return
       }
@@ -152,27 +154,51 @@ export default function MatchPage() {
   }
 
   if (loading) {
-    return <div className="standings-empty"><div className="big">加载中...</div></div>
+    return (
+      <>
+        <PageHead eyebrow="录入" meta="读取中" title="录入战绩" sub="正在同步赛季信息" />
+        <div className="standings-empty"><div className="big">加载中...</div></div>
+      </>
+    )
   }
 
   if (!season || !season.is_active) {
     return (
-      <div className="standings-empty">
-        <div className="seal">战</div>
-        <div className="big">尚无活跃赛季</div>
-        <div>到「赛季」页新建赛季后即可录入</div>
-      </div>
+      <>
+        <PageHead eyebrow="录入" meta="无活跃赛季" title="录入战绩" sub="新建赛季后即可录入对局" muted />
+        <div className="standings">
+          <div className="standings-empty">
+            <div className="seal">战</div>
+            <div className="big">尚无活跃赛季</div>
+            <div>到「赛季」页新建赛季后即可录入</div>
+          </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className="standings">
-      <div className="standings-empty" style={{ padding: '60px 20px' }}>
-        <div className="seal">战</div>
-        <div className="big">录入成绩</div>
-        <div style={{ marginBottom: 20 }}>为「{season.name}」录入一局对局</div>
-        <button className="btn btn-primary" onClick={() => ensureAuth('录入成绩', openEntry)}>开始录入</button>
-      </div>
-    </div>
+    <>
+      <PageHead
+        eyebrow={`${season.name} · 进行中`}
+        meta="本局"
+        title="录入战绩"
+        sub="拖拽排序淘汰顺序 · 点右侧标记存活"
+      />
+
+      <section className="standings">
+        <div className="entry-card">
+          <div className="entry-mark">战</div>
+          <div className="entry-title">录入本局成绩</div>
+          <p className="entry-desc">
+            为「{season.name}」记录一局对局。<br />
+            需要先勾选本局到场的 5–10 人，再排出淘汰顺序。
+          </p>
+          <div className="cta">
+            <GoldButton onClick={() => ensureAuth('录入成绩', openEntry)}>开始录入</GoldButton>
+          </div>
+        </div>
+      </section>
+    </>
   )
 }

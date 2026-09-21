@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
 import { Routes, Route, useLocation, Link } from 'react-router-dom'
 import { AuthProvider } from './lib/auth'
-import { api } from './lib/api'
+
+import Backdrop from './components/Backdrop'
+import ClickSpark from './bits/ClickSpark/ClickSpark'
 
 import StandingsPage from './pages/StandingsPage'
 import MatchPage from './pages/MatchPage'
@@ -80,96 +81,36 @@ function BottomNav() {
   )
 }
 
-// ============ Season Badge ============
-function SeasonBadge() {
-  const [season, setSeason] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const data = await api('/api/standings')
-        if (!cancelled) {
-          setSeason(data.season)
-          setLoading(false)
-        }
-      } catch {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="season-badge">
-        <span className="dot" />
-        加载中...
-      </div>
-    )
-  }
-
-  if (!season) {
-    return (
-      <div className="season-badge inactive">
-        <span className="dot" />
-        暂无活跃赛季
-      </div>
-    )
-  }
-
-  return (
-    <div className={season.is_active ? 'season-badge' : 'season-badge inactive'}>
-      <span className="dot" />
-      {season.name}{season.is_active ? '' : ' · 已结束'}
-    </div>
-  )
-}
-
 // ============ App Layout ============
 function AppLayout() {
   return (
     <>
-      {/* 背景效果 */}
-      <div className="ink-bloom tl" />
-      <div className="ink-bloom br" />
-      <div className="ink-bloom mid" />
-      <div className="noise" />
-      <svg className="mountains" viewBox="0 0 1200 120" preserveAspectRatio="none">
-        <path d="M0,120 L0,80 L100,50 L180,70 L260,30 L340,60 L420,20 L500,55 L580,35 L660,65 L740,25 L820,50 L900,40 L980,70 L1060,45 L1140,60 L1200,35 L1200,120 Z" fill="var(--paper)" />
-        <path d="M0,120 L0,100 L80,75 L160,90 L240,65 L320,85 L400,70 L480,95 L560,80 L640,100 L720,85 L800,95 L880,75 L960,90 L1040,80 L1120,95 L1200,85 L1200,120 Z" fill="var(--paper)" opacity="0.5" />
-      </svg>
+      {/* 背景三层：WebGL 流体 + 颗粒 + 渐晕 */}
+      <Backdrop />
 
-      {/* 主容器 */}
-      <div className="app">
-        {/* 页头 */}
-        <div className="header">
-          <div className="header-ornament">
-            <span className="line" />
-            <span className="diamond" />
-            <span className="line r" />
+      {/* 点击溅射。canvas 是 pointer-events:none，不会挡住交互 */}
+      <ClickSpark
+        sparkColor="#E9C87C"
+        sparkSize={11}
+        sparkRadius={19}
+        sparkCount={9}
+        duration={520}
+      >
+        <div className="app">
+          {/* 页头由各页自带 —— 五个 tab 的标题/副标题都不一样 */}
+          <div className="page-content">
+            <Routes>
+              <Route path="/" element={<StandingsPage />} />
+              <Route path="/match" element={<MatchPage />} />
+              <Route path="/season" element={<SeasonPage />} />
+              <Route path="/prize" element={<PrizePage />} />
+              <Route path="/roster" element={<RosterPage />} />
+            </Routes>
           </div>
-          <div className="header-title">国战积分</div>
-          <div className="header-sub">三国杀国战积分系统</div>
-          <SeasonBadge />
-        </div>
 
-        {/* 页面路由 */}
-        <div className="page-content">
-          <Routes>
-            <Route path="/" element={<StandingsPage />} />
-            <Route path="/match" element={<MatchPage />} />
-            <Route path="/season" element={<SeasonPage />} />
-            <Route path="/prize" element={<PrizePage />} />
-            <Route path="/roster" element={<RosterPage />} />
-          </Routes>
+          <div className="footer">比赛第一 · 友谊长存</div>
         </div>
-
-        {/* 页脚 */}
-        <div className="footer">比赛第一 · 友谊长存</div>
-      </div>
+      </ClickSpark>
 
       {/* 底部导航栏 */}
       <BottomNav />
