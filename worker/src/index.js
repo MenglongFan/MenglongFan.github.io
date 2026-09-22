@@ -300,8 +300,24 @@ export default {
         }
         if (!season) return json({ season: null, details: [] });
 
+        // 逐局明细的「名次」由「存活 + 得分」推导，不能直接用 match_results.rank。
+        //
+        // match_results.rank 存的是录入页的拖拽顺序（MatchPage 的 `rank: i + 1`），
+        // 而「存活」是另一个独立开关 —— 两者可以不一致。真实数据里第 20 局就是
+        // 两个已淘汰的人占了拖拽顺序的第 1、2 位，直接当名次显示就会出现
+        // 「淘汰者显示第 1 名、存活者显示第 3 名」这种明显错误。
+        //
+        // 推导规则：名次 = 1 + 得分严格高于自己的人数（并列占位、跳号）。
+        // calculateScores 保证存活者一律拿最高分 D+1（D = 淘汰人数），
+        // 所以存活者必然全部并列第一，其余按得分降序 —— 正是业务定义。
+        // 例：第 22 局得分 4,4,3,2,1 → 名次 1,1,3,4,5。
+        //
+        // rank 列本身不动：它仍是 calculateScores 决定淘汰者先后的输入。
         const stmt = env.DB.prepare(
-          `SELECT m.id, m.played_at, mr.rank, mr.is_survivor, mr.score
+          `SELECT m.id, m.played_at,
+             (SELECT COUNT(*) FROM match_results x
+               WHERE x.match_id = mr.match_id AND x.score > mr.score) + 1 AS rank,
+             mr.is_survivor, mr.score
            FROM match_results mr
            JOIN matches m ON mr.match_id = m.id
            WHERE mr.player_id = ? AND m.season_id = ?
