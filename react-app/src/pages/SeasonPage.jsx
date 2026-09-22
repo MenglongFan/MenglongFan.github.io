@@ -159,15 +159,37 @@ function MatchPager({ matches }) {
     setActive((prev) => (prev === i ? prev : Math.max(0, Math.min(count - 1, i))))
   }
 
-  const onKeyDown = (e) => {
-    if (count < 2) return
-    if (e.key === 'Home') { e.preventDefault(); goTo(0); return }
-    if (e.key === 'End') { e.preventDefault(); goTo(count - 1); return }
-    const step = { ArrowDown: 1, ArrowRight: 1, PageDown: 1, ArrowUp: -1, ArrowLeft: -1, PageUp: -1 }[e.key]
-    if (!step) return
-    e.preventDefault()
-    goTo(indexAt() + step)
-  }
+  // 键盘：监听挂在 document 上，**不能挂在滚动器上**。
+  // 滚动器虽然 tabIndex={0}，但打开弹窗时焦点在 <body>（按钮点完焦点不进来），
+  // 用户按 ↑↓ 时事件根本到不了它 —— 提示写着「滚轮 / ↑↓ 翻局」却按不动，就是这个原因。
+  // 挂 document 就得自己判断「现在该不该接管」，四条放行规则：
+  //   1) 带修饰键（⌘/Ctrl/Alt）—— 那是浏览器/系统快捷键；
+  //   2) 焦点在输入框/可编辑区里 —— 别抢它的上下键；
+  //   3) 自己不在视口里（弹窗关了、在别的路由上）—— 别越界；
+  //   4) 不是这几个键 —— 一概不动。
+  // 只处理一次：原来那个元素上的 onKeyDown 必须去掉，否则焦点在滚动器上时
+  // 元素处理器和这里会各翻一局（一次按键翻两局）。
+  useEffect(() => {
+    const vp = vpRef.current
+    if (!vp || count < 2) return
+    const onKey = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      const r = vp.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return
+      if (r.bottom <= 0 || r.top >= window.innerHeight) return
+      if (e.key === 'Home') { e.preventDefault(); goTo(0); return }
+      if (e.key === 'End') { e.preventDefault(); goTo(count - 1); return }
+      const step = { ArrowDown: 1, ArrowRight: 1, PageDown: 1, ArrowUp: -1, ArrowLeft: -1, PageUp: -1 }[e.key]
+      if (!step) return
+      // 不 preventDefault 的话，弹窗背后的页面会跟着滚
+      e.preventDefault()
+      goTo(indexAt() + step)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [count, goTo, indexAt])
 
   return (
     <div className="match-section">
@@ -191,7 +213,6 @@ function MatchPager({ matches }) {
             role="group"
             aria-label={`逐局战绩，共 ${count} 局，滚轮或上下方向键翻局`}
             onScroll={onScroll}
-            onKeyDown={onKeyDown}
           >
             {matches.map((m, mi) => (
               <div className="match-block" key={m.id}>
