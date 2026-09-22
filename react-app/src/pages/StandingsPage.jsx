@@ -13,6 +13,38 @@ const Crown = () => (
   </svg>
 )
 
+// 逐局明细列表。榜首卡和榜单行共用同一份标记 —— 原先只有榜单行有，
+// 榜首卡（standings[0]）被单独渲染成 hero，没有展开入口，
+// 于是「点任意一行看逐局明细」这句话对第一名不成立。
+function PlayerDetail({ playerId, open, details }) {
+  return (
+    <div className={`rank-detail ${open ? 'show' : ''}`}>
+      {open && (
+        details[playerId] === undefined ? (
+          <div className="detail-note">加载中...</div>
+        ) : details[playerId].length === 0 ? (
+          <div className="detail-note">暂无对局记录</div>
+        ) : (
+          details[playerId].map((d) => (
+            <div className="detail-row" key={d.id}>
+              <span className="d-left">
+                <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
+                  {d.is_survivor ? '存' : '亡'}
+                </span>
+                <span className="d-date">
+                  {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}
+                </span>
+              </span>
+              <span className="d-rank">第 {d.rank} 名</span>
+              <span className="score-val">{d.score}分</span>
+            </div>
+          ))
+        )
+      )}
+    </div>
+  )
+}
+
 export default function StandingsPage() {
   const [season, setSeason] = useState(null)
   const [standings, setStandings] = useState([])
@@ -141,7 +173,21 @@ export default function StandingsPage() {
           edgeSensitivity={26}
           colors={['#E9C87C', '#E24B36', '#C9A44C']}
         >
-          <div className="hero-in">
+          {/* 点击处理挂在这一层，不挂 BorderGlow：它只接受自己声明的 props，
+              不转发 onClick / role / tabIndex，传了也不会生效。 */}
+          <div
+            className={`hero-in hero-clickable${expandedId === champion.id ? ' is-open' : ''}`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={expandedId === champion.id}
+            onClick={() => toggleDetail(champion.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggleDetail(champion.id)
+              }
+            }}
+          >
             <div className="hero-badge">
               <Crown />
               <span>本季榜首</span>
@@ -166,6 +212,12 @@ export default function StandingsPage() {
                 <span className="hero-unit">分</span>
               </div>
             </div>
+
+            <PlayerDetail
+              playerId={champion.id}
+              open={expandedId === champion.id}
+              details={details}
+            />
           </div>
         </BorderGlow>
       </section>
@@ -204,30 +256,7 @@ export default function StandingsPage() {
             >
               <RankRow player={p} rank={rank} maxScore={maxScore} animateIndex={i} />
 
-              <div className={`rank-detail ${open ? 'show' : ''}`}>
-                {open && (
-                  details[p.id] === undefined ? (
-                    <div className="detail-note">加载中...</div>
-                  ) : details[p.id].length === 0 ? (
-                    <div className="detail-note">暂无对局记录</div>
-                  ) : (
-                    details[p.id].map((d) => (
-                      <div className="detail-row" key={d.id}>
-                        <span className="d-left">
-                          <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
-                            {d.is_survivor ? '存' : '亡'}
-                          </span>
-                          <span className="d-date">
-                            {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}
-                          </span>
-                        </span>
-                        <span className="d-rank">第 {d.rank} 名</span>
-                        <span className="score-val">{d.score}分</span>
-                      </div>
-                    ))
-                  )
-                )}
-              </div>
+              <PlayerDetail playerId={p.id} open={open} details={details} />
             </SpotlightCard>
           )
         })}

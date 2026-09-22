@@ -317,6 +317,18 @@ input{font-family:inherit;}
 }
 .hero-unit{font-family:var(--font-label);font-size:12px;color:var(--paper-mute);}
 
+/* 榜首卡也要能点开看逐局明细 —— 原先只有榜单行（standings.slice(1)）有展开入口，
+   第一名被单独渲染成 hero，点不动，页面提示「点任意一行看逐局明细」对榜首不成立。
+
+   明细块直接复用榜单行那套 .rank-detail，但它的 50px 左缩进是为了对齐名次列，
+   榜首卡里没有那一列，缩进会显得莫名其妙，所以贴齐 hero-in 的内边距即可。
+   .hero .rank-detail 的权重(0,2,0)高于窄屏那条 .rank-detail(0,1,0)，
+   所以 ≤360px 的 padding-left:46px 不会把这里顶回来。 */
+.hero-clickable{cursor:pointer;}
+.hero-clickable:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:var(--radius-lg);}
+.hero .rank-detail{padding:0;}
+.hero .rank-detail.show{padding:6px 0 0;}
+
 /* ==================================================================
    区块小标题（"完整战绩 / 按积分排序"这类）
    ================================================================== */
