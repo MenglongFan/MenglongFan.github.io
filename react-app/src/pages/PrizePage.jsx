@@ -233,10 +233,6 @@ export default function PrizePage() {
 
   const { current_balance, contributions, recent_transactions } = data
 
-  // 页面上只留最近 3 笔当预览（带时间点），完整的走「查看流水」那张账单
-  const TX_PREVIEW = 3
-  const txVisible = recent_transactions.slice(0, TX_PREVIEW)
-
   return (
     <>
       <PageHead
@@ -247,12 +243,28 @@ export default function PrizePage() {
       />
 
       <section className="standings">
-        <div className="prize-total">
+        {/* 余额这块既是「现在多少钱」，也是打开流水的入口：双击弹账单。
+            为什么不做成按钮：下面已经有「支取奖池」了，再摞一个按钮又丑又抢眼；
+            而余额是这一页唯一的主角，双击它最自然。
+            代价是双击不可见，所以下面挂一行小字提示，另外给键盘留 Enter/Space。
+            两个细节：user-select:none 否则双击会顺手选中「30元」并高亮；
+            touch-action:manipulation 否则手机上双击会触发缩放、dblclick 不派发。 */}
+        <div
+          className="prize-total"
+          role="button"
+          tabIndex={0}
+          aria-label={`公共基金池 ${current_balance} 元，双击查看流水`}
+          onDoubleClick={openBill}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBill() }
+          }}
+        >
           <div className="label">公共基金池</div>
           <div className="amount">
             <CountUp to={current_balance || 0} from={0} duration={1.2} />
             <span className="yuan">元</span>
           </div>
+          <div className="prize-hint">双击查看流水</div>
         </div>
 
         <div className="prize-section">
@@ -272,43 +284,6 @@ export default function PrizePage() {
               ))}
             </div>
           ) : <div className="prize-empty">暂无贡献记录</div>}
-        </div>
-
-        <div className="prize-section">
-          <div className="prize-section-title">
-            <span>流水</span>
-            <span className="count">
-              {recent_transactions.length > TX_PREVIEW
-                ? `最近 ${TX_PREVIEW} / 共 ${recent_transactions.length} 笔`
-                : `共 ${recent_transactions.length} 笔`}
-            </span>
-          </div>
-          {recent_transactions.length > 0 ? (
-            <>
-              <div className="tx-list">
-                {txVisible.map((t) => {
-                  const isPositive = t.amount > 0
-                  return (
-                    <div className="tx-item" key={t.id}>
-                      <div className="tx-info">
-                        <span className={`tx-type ${t.type}`}>{txLabel(t)}</span>
-                        <div className="tx-desc">{txDesc(t)}</div>
-                        <div className="tx-when">{fmtWhen(t.created_at)}</div>
-                      </div>
-                      <div className="tx-amount">
-                        <span className={`val ${isPositive ? 'positive' : 'negative'}`}>{isPositive ? '+' : ''}{t.amount}元</span>
-                        <span className="balance">余额 {t.balance}元</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <button type="button" className="bill-open" onClick={openBill}>
-                查看流水
-                <i className="chev" />
-              </button>
-            </>
-          ) : <div className="prize-empty">暂无流水记录</div>}
         </div>
 
         {current_balance > 0 && (

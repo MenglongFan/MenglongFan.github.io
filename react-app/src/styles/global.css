@@ -1100,11 +1100,26 @@ input{font-family:inherit;}
 .season-item .s-btn.gold:hover{background:rgba(233,200,124,0.16);color:var(--gold-bright);border-color:var(--gold);}
 
 /* ============ 奖池 ============ */
+/* 余额这块既是「现在多少钱」，也是打开流水的入口：双击弹账单。
+   不做成按钮是因为下面已经有「支取奖池」了，再摞一个按钮又丑又抢眼；
+   而余额是这一页唯一的主角，双击它最自然。
+   三个细节都是必须的：
+   - user-select:none —— 否则双击会顺手选中「30元」并高亮，看着像出了 bug；
+   - touch-action:manipulation —— 否则手机上双击触发缩放、dblclick 根本不派发；
+   - cursor:pointer + 下面那行小字 —— 双击本身不可见，总得给点提示。 */
 .prize-total{
   text-align:center;
   padding:22px 0 20px;
   position:relative;
+  cursor:pointer;
+  border-radius:var(--radius);
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+  transition:background .2s ease;
 }
+.prize-total:hover{background:var(--glass);}
+.prize-total:focus-visible{outline:2px solid var(--gold);outline-offset:4px;}
 .prize-total::after{
   content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;
   background:linear-gradient(90deg, transparent, var(--gold), transparent);
@@ -1127,6 +1142,16 @@ input{font-family:inherit;}
   font-size:24px;margin-left:4px;
   color:var(--gold-deep);opacity:0.75;
 }
+/* 双击的可见提示：双击是个没有外观的交互，不写一行字没人会去试 */
+.prize-hint{
+  margin-top:10px;
+  font-family:var(--font-label);
+  font-size:11px;color:var(--paper-mute);
+  letter-spacing:0.12em;
+  opacity:0.9;
+  transition:color .2s ease,opacity .2s ease;
+}
+.prize-total:hover .prize-hint{color:var(--gold);opacity:1;}
 
 .prize-section{margin-top:20px;}
 .prize-section-title{
@@ -1169,14 +1194,8 @@ input{font-family:inherit;}
 }
 .contrib-amount{font-family:var(--font-display);font-size:18px;color:var(--gold);flex-shrink:0;}
 
-.tx-list{display:flex;flex-direction:column;gap:2px;}
-.tx-item{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 4px;
-  border-bottom:1px solid var(--paper-ghost);
-}
-.tx-item:last-child{border-bottom:none;}
-.tx-info{flex:1;min-width:0;}
+/* 流水不再在页面上铺开（只增不减，会把「支取奖池」推得很远），
+   整份流水走双击余额弹出来的那张账单。这里只留账单自己还要用的类型徽标。 */
 .tx-type{
   font-size:11px;font-weight:600;
   display:inline-block;
@@ -1186,58 +1205,6 @@ input{font-family:inherit;}
 }
 .tx-type.fine{background:rgba(226,75,54,0.14);color:var(--vermilion);border:1px solid rgba(226,75,54,0.28);}
 .tx-type.withdrawal{background:rgba(47,122,90,0.16);color:var(--jade-bright);border:1px solid rgba(47,122,90,0.34);}
-.tx-desc{
-  font-size:12px;color:var(--paper-mute);
-  font-family:var(--font-label);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-/* 时间点：钱进出必须看得出「什么时候」，所以每条流水都带一行时间 */
-.tx-when{
-  margin-top:3px;
-  font-size:11px;color:var(--paper-mute);
-  font-family:var(--font-label);
-  letter-spacing:0.04em;
-  font-variant-numeric:tabular-nums;
-  opacity:0.85;
-}
-.tx-amount{text-align:right;flex-shrink:0;}
-.tx-amount .val{font-family:var(--font-display);font-size:18px;display:block;}
-.tx-amount .val.positive{color:var(--gold);}
-.tx-amount .val.negative{color:var(--jade-bright);}
-.tx-amount .balance{font-size:11px;color:var(--paper-mute);font-family:var(--font-label);}
-
-/* ---------- 「查看流水」按钮 ----------
-   流水只增不减，整列铺开会把页面撑得很长：末尾的「支取奖池」被推到很远。
-   所以页面上只留最近 3 笔当预览，完整的走下方那张从顶部落下的账单。 */
-.chev{
-  display:inline-block;width:0;height:0;
-  margin-left:6px;vertical-align:middle;
-  border-left:4px solid transparent;
-  border-right:4px solid transparent;
-  border-top:5px solid currentColor;
-  transition:transform .25s ease;
-}
-
-.bill-open{
-  display:flex;align-items:center;justify-content:center;
-  width:100%;margin-top:10px;padding:10px 0;
-  background:var(--glass);
-  border:1px solid var(--border);
-  border-radius:999px;
-  color:var(--paper-dim);
-  font-family:var(--font-label);font-size:13px;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  transition:background .2s ease,color .2s ease,border-color .2s ease;
-}
-.bill-open:hover{background:var(--glass-2);color:var(--gold-bright);border-color:var(--border-bright);}
-.bill-open:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
-/* 账单是从顶上「挂下来」的，箭头指上 */
-.bill-open .chev{
-  margin-left:8px;
-  border-top:none;
-  border-bottom:5px solid currentColor;
-}
 
 /* ---------- 账单（奖池流水）----------
    从屏幕顶边整块落下的流水面板。为什么不是从下往上弹：账单是「挂下来」的东西，
