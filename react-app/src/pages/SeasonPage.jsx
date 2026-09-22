@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react'
 import { api, getDefaultSeasonName } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
@@ -65,8 +65,154 @@ function SeasonCreate({ players, submitRef }) {
 // 空数组常量：standings 为空时保证 effect 依赖引用稳定，避免反复重跑
 const EMPTY = []
 
-// 逐局战绩默认先露几局（超过才折叠，和奖池流水的阈值同理）
-const MATCH_PREVIEW = 3
+/**
+ * 逐局战绩：滚轮翻局，一次手势正好一局。
+ *
+ * 原先的做法是「先露 3 局 + 展开全部」——展开后一屏能看到两局半，落点全看滚了多少像素，
+ * 想对比第 4 局和第 5 局得自己找位置。这里换成翻页式：
+ * 容器高度做成**正好一局**，靠 scroll-snap 把落点对齐到块边界，滚轮一格就是一局。
+ *
+ * 两个坑：
+ * 1. **容器高度不能写死** —— 一局的高度随参赛人数变。用 JS 量出第一块的高度写进
+ *    CSS 变量 `--one-match`，再用 ResizeObserver 跟着块高走（人数或窗口宽度变了要重量）。
+ * 2. **wheel 必须用原生非被动监听**。React 17+ 把 wheel 注册成 passive，
+ *    `onWheel` 里 `preventDefault()` 不生效（控制台还会警告），所以只能
+ *    `addEventListener('wheel', h, { passive: false })`。
+ */
+function MatchPager({ matches }) {
+  const vpRef = useRef(null)
+  const [active, setActive] = useState(0) // 数组下标（0 = 最新一局）；局号 = count - active
+  const lockRef = useRef(0)               // 手势锁：同一次滚轮手势里只翻一局
+  const strideRef = useRef(0)             // 相邻两块的顶边差 = 块高 + 10px 块间距
+
+  const count = matches ? matches.length : 0
+
+  // 量出一局的高度（= 容器高度）与步进。只在真的变了才写变量，避免 ResizeObserver 自激。
+  useLayoutEffect(() => {
+    const vp = vpRef.current
+    if (!vp || count === 0) return
+    const first = vp.querySelector('.match-block')
+    if (!first) return
+    const measure = () => {
+      const blocks = vp.querySelectorAll('.match-block')
+      if (!blocks.length) return
+      const h = blocks[0].getBoundingClientRect().height
+      const cur = parseFloat(vp.style.getPropertyValue('--one-match')) || 0
+      if (Math.abs(cur - h) > 0.5) vp.style.setProperty('--one-match', `${h}px`)
+      // 相邻两块的顶边差含 margin，不能只拿块高当步进，否则每翻一局会累积 10px 漂移
+      strideRef.current = blocks[1]
+        ? blocks[1].getBoundingClientRect().top - blocks[0].getBoundingClientRect().top
+        : h
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(first)
+    return () => ro.disconnect()
+  }, [count, matches])
+
+  const indexAt = useCallback(() => {
+    const vp = vpRef.current
+    if (!vp) return 0
+    const stride = strideRef.current || vp.clientHeight
+    return Math.round(vp.scrollTop / stride)
+  }, [])
+
+  const goTo = useCallback((i) => {
+    const vp = vpRef.current
+    if (!vp) return
+    const blocks = vp.querySelectorAll('.match-block')
+    if (!blocks.length) return
+    const target = blocks[Math.max(0, Math.min(blocks.length - 1, i))]
+    // 容器上下不留内边距和边框，所以「块顶到容器顶的距离」就是该块的 scrollTop
+    const top = target.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop
+    vp.scrollTo({ top, behavior: 'smooth' })
+  }, [])
+
+  // 滚轮：一格手势 = 一局。到两端就不拦了，让外层弹窗接着滚。
+  useEffect(() => {
+    const vp = vpRef.current
+    if (!vp || count < 2) return
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.deltaY === 0) return // 缩放 / 横向滚，交回默认
+      const dir = e.deltaY > 0 ? 1 : -1
+      const atTop = vp.scrollTop <= 1
+      const atBottom = vp.scrollTop >= vp.scrollHeight - vp.clientHeight - 1
+      if ((dir < 0 && atTop) || (dir > 0 && atBottom)) return
+      e.preventDefault()
+      const now = performance.now()
+      if (now - lockRef.current < 350) return // 同一次手势里剩下的 wheel 事件直接丢掉
+      lockRef.current = now
+      goTo(indexAt() + dir)
+    }
+    vp.addEventListener('wheel', onWheel, { passive: false })
+    return () => vp.removeEventListener('wheel', onWheel)
+  }, [count, goTo, indexAt])
+
+  const onScroll = () => {
+    const i = indexAt()
+    setActive((prev) => (prev === i ? prev : Math.max(0, Math.min(count - 1, i))))
+  }
+
+  const onKeyDown = (e) => {
+    if (count < 2) return
+    if (e.key === 'Home') { e.preventDefault(); goTo(0); return }
+    if (e.key === 'End') { e.preventDefault(); goTo(count - 1); return }
+    const step = { ArrowDown: 1, ArrowRight: 1, PageDown: 1, ArrowUp: -1, ArrowLeft: -1, PageUp: -1 }[e.key]
+    if (!step) return
+    e.preventDefault()
+    goTo(indexAt() + step)
+  }
+
+  return (
+    <div className="match-section">
+      <div className="match-hd">
+        <h3>逐局战绩</h3>
+        {/* 窄屏下 .match-hd 是 flex + space-between，右侧 flex-shrink:0，
+            所以标签要短：「第 5 局 · 共 5 局」在 320px 会把标题挤出去 */}
+        <span>{matches ? (count > 0 ? `第 ${count - active} / ${count} 局` : '0 局') : '读取中'}</span>
+      </div>
+
+      {matches && count === 0 && <div className="prize-empty">暂无对局记录</div>}
+
+      {count > 0 && (
+        <>
+          {/* 提示放在滚动器**上方**：放下面会被弹窗自身的滚动切掉，等于没有 */}
+          {count > 1 && <div className="match-hint">滚轮 / ↑↓ 翻局 · 一次一局</div>}
+          <div
+            className="match-scroller"
+            ref={vpRef}
+            tabIndex={0}
+            role="group"
+            aria-label={`逐局战绩，共 ${count} 局，滚轮或上下方向键翻局`}
+            onScroll={onScroll}
+            onKeyDown={onKeyDown}
+          >
+            {matches.map((m, mi) => (
+              <div className="match-block" key={m.id}>
+                <div className="match-block-hd">
+                  <span className="match-no">第 {count - mi} 局</span>
+                  <span className="match-date">
+                    {m.played_at ? m.played_at.slice(5, 16).replace('T', ' ') : '—'}
+                  </span>
+                </div>
+                {m.rows.map((r) => (
+                  <div className="match-row" key={r.player_id}>
+                    <span className="m-rank">{r.rank}</span>
+                    <span className="m-name">{r.name}</span>
+                    <span className={`stamp ${r.is_survivor ? 'alive' : 'dead'}`}>
+                      {r.is_survivor ? '存' : '亡'}
+                    </span>
+                    <span className="m-score">{r.score}分</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 /**
  * 「赛季 → 查看」的内容，两块：
@@ -79,7 +225,6 @@ const MATCH_PREVIEW = 3
  */
 function SeasonDetail({ season, standings }) {
   const [openId, setOpenId] = useState(null)
-  const [matchesOpen, setMatchesOpen] = useState(false)
   // null = 读取中；否则是 playerId -> 逐局数组
   const [byPlayer, setByPlayer] = useState(null)
 
@@ -137,14 +282,14 @@ function SeasonDetail({ season, standings }) {
   }
 
   const loading = byPlayer === null
-  const matchCount = matches ? matches.length : 0
-  const canFoldMatches = matchCount > MATCH_PREVIEW
-  const shownMatches = matches
-    ? (canFoldMatches && !matchesOpen ? matches.slice(0, MATCH_PREVIEW) : matches)
-    : []
 
   return (
-    <>
+    // .season-detail 不只是个包裹：它把弹窗主体改成「个人总榜内滚 + 逐局战绩固定在下」。
+    // 内容约 90vh、比弹窗还高，整体滚动必然把逐局那一块裁掉一截，
+    // 而那块正是要靠滚轮一次看一局的。见 global.css 的 .modal:has(.season-detail)。
+    <div className="season-detail">
+      {/* 个人总榜：这一段自己滚，不跟逐局战绩抢高度 */}
+      <div className="season-ranks">
       {list.map((p, i) => {
         const open = openId === p.id
         const rows = byPlayer ? (byPlayer[p.id] || []) : null
@@ -195,54 +340,12 @@ function SeasonDetail({ season, standings }) {
           </div>
         )
       })}
-
-      <div className="match-hd">
-        <h3>逐局战绩</h3>
-        <span>{matches ? `${matchCount} 局` : '读取中'}</span>
       </div>
 
-      {matches && matchCount === 0 && <div className="prize-empty">暂无对局记录</div>}
-
-      {matches && matchCount > 0 && (
-        <>
-          <div className={`fold-wrap${canFoldMatches && !matchesOpen ? ' folded' : ' open'}`}>
-            <div className="match-list fold-scroll">
-              {shownMatches.map((m, mi) => (
-                <div className="match-block" key={m.id}>
-                  <div className="match-block-hd">
-                    <span className="match-no">第 {matchCount - mi} 局</span>
-                    <span className="match-date">
-                      {m.played_at ? m.played_at.slice(5, 16).replace('T', ' ') : '—'}
-                    </span>
-                  </div>
-                  {m.rows.map((r) => (
-                    <div className="match-row" key={r.player_id}>
-                      <span className="m-rank">{r.rank}</span>
-                      <span className="m-name">{r.name}</span>
-                      <span className={`stamp ${r.is_survivor ? 'alive' : 'dead'}`}>
-                        {r.is_survivor ? '存' : '亡'}
-                      </span>
-                      <span className="m-score">{r.score}分</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-          {canFoldMatches && (
-            <button
-              type="button"
-              className="fold-more"
-              onClick={() => setMatchesOpen((v) => !v)}
-              aria-expanded={matchesOpen}
-            >
-              {matchesOpen ? '收起' : `展开全部 ${matchCount} 局`}
-              <i className="chev" />
-            </button>
-          )}
-        </>
-      )}
-    </>
+      {/* 逐局战绩：滚轮翻局，一次一局。标题、局号与空态都由 MatchPager 自己渲染。
+          这一段不参与滚动（flex:0 0 auto），永远整块可见。 */}
+      <MatchPager matches={matches} />
+    </div>
   )
 }
 

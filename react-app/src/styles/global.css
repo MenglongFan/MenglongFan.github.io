@@ -603,6 +603,37 @@ input{font-family:inherit;}
   position:relative;
 }
 
+/* 赛季详情这一档要单独处理高度：它的内容（个人总榜 + 逐局战绩）约 90vh，
+   比弹窗本身还高，所以**整体滚动这条路走不通** —— 无论弹窗多高，
+   逐局战绩那一块总会被裁掉一截，而那块正是要靠滚轮一次看一局的。
+   两件事一起做：
+   1) 放宽高度上限（85vh → 93vh，同时受 .overlay 的 16px 内边距约束），
+      让个人总榜尽量少滚一点；
+   2) 弹窗主体不再整体滚动，个人总榜自己内滚，逐局战绩固定在下方、永远整块可见。
+   用 :has() 只影响这一个弹窗，其余弹窗的高度与滚动行为都不变。 */
+.modal:has(.season-detail){max-height:min(93vh,calc(100vh - 32px));}
+.modal:has(.season-detail) .modal-body{
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.season-detail{
+  flex:1 1 auto;min-height:0;
+  display:flex;flex-direction:column;
+}
+/* 个人总榜：可伸缩、内滚。块级滚动容器，子项不会被 flex 压缩 */
+.season-ranks{
+  flex:1 1 auto;min-height:0;
+  overflow-y:auto;
+  padding-right:6px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--paper-faint) transparent;
+}
+.season-ranks::-webkit-scrollbar{width:3px;}
+.season-ranks::-webkit-scrollbar-track{background:transparent;}
+.season-ranks::-webkit-scrollbar-thumb{background:var(--paper-faint);border-radius:2px;}
+/* 逐局战绩：不参与伸缩，高度 = 标题 + 提示 + 正好一局 */
+.match-section{flex:0 0 auto;}
+
 .modal-header{
   padding:18px 22px;
   border-bottom:1px solid var(--border);
@@ -1141,7 +1172,9 @@ input{font-family:inherit;}
 /* ---------- 通用折叠容器 ----------
    折叠态只露前几条 + 底部渐隐；展开态给内层 .fold-scroll **限高内滚**。
    页面高度从此不随列表条数增长。
-   用在两处：奖池「流水」（只增不减）和赛季详情的「逐局战绩」（一局一块）。
+   现在只剩奖池「流水」一处用（只增不减）。
+   赛季详情的「逐局战绩」原先也用它，后来改成滚轮一次一局的 .match-scroller
+   （见下方），因为折叠+内滚的落点不受控、一屏能看到两局半。
    内层滚动器加 .fold-scroll 即可，不必是固定标签。 */
 .fold-wrap{position:relative;}
 /* 渐隐色取 --void（#07070B）；这里不能用 var() 拼 alpha，故写死 */
@@ -1202,6 +1235,37 @@ input{font-family:inherit;}
   color:var(--paper-dim);letter-spacing:0.06em;
 }
 .match-hd span{font-size:12px;color:var(--gold);font-family:var(--font-label);flex-shrink:0;}
+
+/* 逐局战绩的翻页容器：高度 = 正好一局，滚轮一格 = 一局。
+   `--one-match` 由 MatchPager 量出块高后写入 —— 一局的高度随参赛人数变，写死会裁切。
+   上下不留内边距、不加边框：这样「第 i 块的顶边」正好等于它的 scrollTop，
+   滚轮换算与 scroll-snap 落点用的是同一个数，不用互相补偿。 */
+.match-scroller{
+  height:var(--one-match,180px);
+  overflow-y:auto;
+  scroll-snap-type:y mandatory;
+  scroll-behavior:smooth;
+  padding:0 6px 0 0;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(233,200,124,0.36) transparent;
+  -webkit-tap-highlight-color:transparent;
+}
+.match-scroller:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:var(--radius);}
+.match-scroller::-webkit-scrollbar{width:4px;}
+.match-scroller::-webkit-scrollbar-track{background:transparent;}
+.match-scroller::-webkit-scrollbar-thumb{background:rgba(233,200,124,0.36);border-radius:2px;}
+/* scroll-snap-stop:always —— 快速连滚也只在相邻一格停下，不会一次跳两局 */
+.match-scroller .match-block{scroll-snap-align:start;scroll-snap-stop:always;}
+/* 最后一块不留间距：否则容器多出 10px 可滚空间，末局落点会差一点 */
+.match-scroller .match-block:last-child{margin-bottom:0;}
+
+/* 翻局提示：必须放在滚动器**上方**。放在下面会被弹窗自身的滚动裁掉 ——
+   实测提示行落在 .modal-body 可视区之外（769 > 761），等于没写。 */
+.match-hint{
+  margin:-4px 0 8px;
+  font-size:11px;color:var(--paper-mute);
+  font-family:var(--font-label);letter-spacing:0.04em;
+}
 
 .match-block{
   margin-bottom:10px;
