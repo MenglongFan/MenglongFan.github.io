@@ -78,6 +78,13 @@ const EMPTY = []
  * 2. **wheel 必须用原生非被动监听**。React 17+ 把 wheel 注册成 passive，
  *    `onWheel` 里 `preventDefault()` 不生效（控制台还会警告），所以只能
  *    `addEventListener('wheel', h, { passive: false })`。
+ *
+ * 第三个坑（踩过）：**量高度只能用 offsetHeight / offsetTop，不能用
+ * getBoundingClientRect()**。弹窗打开时带 `scrollOpen` 动画（scale(0.96) → 1），
+ * 而 ResizeObserver 的首次回调是异步的、可能落在动画中途 —— 那时 rect 拿到的是
+ * **被 transform 缩过的值**（实测 386 被量成 382.37），写进 `--one-match` 后容器就比
+ * 一局矮 4px，每局底部被裁掉一条。而且 RO 报的是 border-box，transform 变化不触发回调，
+ * 这个错值会一直挂着不自愈。offsetHeight / offsetTop 是布局值，不受 transform 影响。
  */
 function MatchPager({ matches }) {
   const vpRef = useRef(null)
@@ -96,13 +103,12 @@ function MatchPager({ matches }) {
     const measure = () => {
       const blocks = vp.querySelectorAll('.match-block')
       if (!blocks.length) return
-      const h = blocks[0].getBoundingClientRect().height
+      const h = blocks[0].offsetHeight
+      if (!h) return
       const cur = parseFloat(vp.style.getPropertyValue('--one-match')) || 0
       if (Math.abs(cur - h) > 0.5) vp.style.setProperty('--one-match', `${h}px`)
       // 相邻两块的顶边差含 margin，不能只拿块高当步进，否则每翻一局会累积 10px 漂移
-      strideRef.current = blocks[1]
-        ? blocks[1].getBoundingClientRect().top - blocks[0].getBoundingClientRect().top
-        : h
+      strideRef.current = blocks[1] ? blocks[1].offsetTop - blocks[0].offsetTop : h
     }
     measure()
     const ro = new ResizeObserver(measure)
@@ -123,9 +129,9 @@ function MatchPager({ matches }) {
     const blocks = vp.querySelectorAll('.match-block')
     if (!blocks.length) return
     const target = blocks[Math.max(0, Math.min(blocks.length - 1, i))]
-    // 容器上下不留内边距和边框，所以「块顶到容器顶的距离」就是该块的 scrollTop
-    const top = target.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop
-    vp.scrollTo({ top, behavior: 'smooth' })
+    // .match-scroller 是 position:relative，所以块的 offsetTop 就是它在内容里的位置，
+    // 也就是要滚到的 scrollTop（容器上下无内边距无边框，不用再补偿）
+    vp.scrollTo({ top: target.offsetTop, behavior: 'smooth' })
   }, [])
 
   // 滚轮：一格手势 = 一局。到两端就不拦了，让外层弹窗接着滚。
@@ -222,11 +228,17 @@ function MatchPager({ matches }) {
  * 后端没有「整赛季所有对局」的接口，这里拉每个选手的 /details 后按 match_id 归并，
  * 目的是不改 Worker、不重新部署后端。选手数就是 5-10，并行发一轮请求即可；
  * 而且归并结果与「点行展开」共用同一份数据 —— 展开时不再发请求，点了就开。
+ *
+ * 布局要求（用户提的）：**永远不要出现滚动条**，总榜和逐局战绩都要看得见。
+ * 参赛最多 10 人，所以：宽屏排成左右两栏（总榜在左、逐局战绩在右），两块不再
+ * 互相抢高度；窄屏退回上下两段，总榜这块按「拿到多少高度 / 几个人」自己算行高
+ * （--row-h），人少就原样铺开、人多就整行等比压一点，尽量压到不用滚。
  */
 function SeasonDetail({ season, standings }) {
   const [openId, setOpenId] = useState(null)
   // null = 读取中；否则是 playerId -> 逐局数组
   const [byPlayer, setByPlayer] = useState(null)
+  const ranksRef = useRef(null)
 
   const list = standings || EMPTY
 
@@ -277,6 +289,92 @@ function SeasonDetail({ season, standings }) {
     return m
   }, [matches])
 
+  // 行高自适应。总榜这块能拿到多少高度，**必须从视口往下减**，不能读 el.clientHeight：
+  // 弹窗高度是 auto（内容多高就多高，只受 max-height 封顶），而 .season-ranks 又随内容伸缩，
+  // 拿 clientHeight 去算就是自己咬自己 —— 行高改小 → 内容变矮 → 弹窗变矮 → 下次算出来更小，
+  // 一路棘轮到下限，而且这个错值还是个自洽的固定点，再也不会自己回来
+  // （踩过：800px 宽下 61px 掉成 48px，10 人榜被压出内滚）。
+  //
+  //   65px = 自然高度（不压缩），48px = 压到底（再小头像和两行字就要打架）。
+  // 压完还是不够就交给内滚兜底 —— 只会在「10 人 + 窄屏」同时出现，这时
+  // 用 data-overflow / data-at-end 在列表底部点一层渐隐，提示「下面还有人」。
+  // 没有滚动条就只剩这个提示了，不给的话 7-10 名看起来像不存在。
+  useLayoutEffect(() => {
+    const el = ranksRef.current
+    if (!el) return
+    const GAP = 9
+    const ROW_MIN = 48
+    const ROW_MAX = 65
+
+    const setAttr = (k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v }
+    const syncFade = () => {
+      const over = el.scrollHeight - el.clientHeight
+      setAttr('overflow', over > 2 ? '1' : '0')
+      setAttr('atEnd', over > 2 && el.scrollTop < over - 2 ? '0' : '1')
+    }
+
+    // 视口高度 − 弹窗外内边距与边框 − 页头页脚 − 主体上下内边距
+    //   − 列标题（含其下边距，用 el.offsetTop 取，见下）−（上下两段时）逐局战绩那一块
+    // 全是布局值（offsetHeight / offsetTop / computed padding），不受弹窗打开动画的
+    // transform 影响；弹窗自身的高度**故意不参与**，因为它是 auto、会跟着行高变。
+    const avail = () => {
+      const modal = el.closest('.modal')
+      if (!modal) return el.clientHeight
+      const body = el.closest('.modal-body')
+      const overlay = modal.parentElement
+      const header = modal.querySelector('.modal-header')
+      const footer = modal.querySelector('.modal-footer')
+      const det = el.closest('.season-detail')
+      const stacked = det && getComputedStyle(det).flexDirection === 'column'
+      const match = stacked ? modal.querySelector('.match-section') : null
+      const px = (v) => parseFloat(v) || 0
+      const ov = getComputedStyle(overlay)
+      const bd = getComputedStyle(body)
+      const md = getComputedStyle(modal)
+      return window.innerHeight
+        - px(ov.paddingTop) - px(ov.paddingBottom)
+        - px(md.borderTopWidth) - px(md.borderBottomWidth)
+        - (header ? header.offsetHeight : 0)
+        - (footer ? footer.offsetHeight : 0)
+        - px(bd.paddingTop) - px(bd.paddingBottom)
+        // .season-col 是 position:relative，所以 el.offsetTop 正好等于
+        // 「列标题高度 + 它的下边距」——比手写 colHd.offsetHeight + marginBottom 稳
+        - el.offsetTop
+        - (match ? match.offsetHeight : 0)
+    }
+
+    const apply = () => {
+      const n = el.children.length
+      if (!n) return
+      const fit = (avail() - GAP * (n - 1)) / n
+      const h = Math.max(ROW_MIN, Math.min(ROW_MAX, Math.floor(fit)))
+      const cur = parseFloat(el.style.getPropertyValue('--row-h')) || 0
+      // 只在真的变了才写，避免 ResizeObserver 自激
+      if (Math.abs(cur - h) > 0.5) el.style.setProperty('--row-h', `${h}px`)
+      // 写完再读一次溢出量（新行高下的）
+      syncFade()
+    }
+    apply()
+    // 观察 el 是为了跟着「窗口变了 / 逐局战绩那一块变高了」重量；
+    // 行高本身由 avail() 决定，不会反过来把 avail() 改小，所以不会自激。
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    el.addEventListener('scroll', syncFade, { passive: true })
+    return () => { ro.disconnect(); el.removeEventListener('scroll', syncFade) }
+  }, [list.length])
+
+  const toggle = (p, e) => {
+    const next = openId === p.id ? null : p.id
+    setOpenId(next)
+    // 展开后明细可能落在可视区外，滚进来看。这块是内滚容器，所以用 nearest 而不是 start，
+    // 免得已经看得见的行被顶到顶上。
+    if (next && e && e.currentTarget) {
+      requestAnimationFrame(() => {
+        e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      })
+    }
+  }
+
   if (list.length === 0) {
     return <div className="prize-empty">该赛季暂无对局记录</div>
   }
@@ -284,66 +382,71 @@ function SeasonDetail({ season, standings }) {
   const loading = byPlayer === null
 
   return (
-    // .season-detail 不只是个包裹：它把弹窗主体改成「个人总榜内滚 + 逐局战绩固定在下」。
-    // 内容约 90vh、比弹窗还高，整体滚动必然把逐局那一块裁掉一截，
-    // 而那块正是要靠滚轮一次看一局的。见 global.css 的 .modal:has(.season-detail)。
+    // .season-detail 不只是个包裹：它把弹窗主体改成「总榜可伸缩 + 逐局战绩固定在下」，
+    // 宽屏下再横过来排成两栏。见 global.css 的 .modal:has(.season-detail)。
     <div className="season-detail">
-      {/* 个人总榜：这一段自己滚，不跟逐局战绩抢高度 */}
-      <div className="season-ranks">
-      {list.map((p, i) => {
-        const open = openId === p.id
-        const rows = byPlayer ? (byPlayer[p.id] || []) : null
-        return (
-          <div
-            key={p.id}
-            className={`rank-item-static expandable${open ? ' is-open' : ''}`}
-            role="button"
-            tabIndex={0}
-            aria-expanded={open}
-            onClick={() => setOpenId(open ? null : p.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                setOpenId(open ? null : p.id)
-              }
-            }}
-          >
-            {/* 名次取后端的并列名次，不用下标 —— 同积分同存活必须并列（见积分榜同款说明） */}
-            <RankRow player={p} rank={p.rank ?? i + 1} maxScore={maxScore} animateIndex={i} />
-            <div className={`rank-detail ${open ? 'show' : ''}`}>
-              {open && (loading ? (
-                <div className="detail-note">加载中...</div>
-              ) : rows.length === 0 ? (
-                <div className="detail-note">暂无对局记录</div>
-              ) : (
-                rows.map((d) => (
-                  <div className="detail-row" key={d.id}>
-                    <span className="d-left">
-                      <span className="d-top">
-                        <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
-                          {d.is_survivor ? '存' : '亡'}
+      {/* 个人总榜：这块自己伸缩，不跟逐局战绩抢高度 */}
+      <div className="season-col">
+        <div className="season-col-hd">
+          <h3>个人总榜</h3>
+          <span>{list.length} 人</span>
+        </div>
+        <div className="season-ranks" ref={ranksRef}>
+          {list.map((p, i) => {
+            const open = openId === p.id
+            const rows = byPlayer ? (byPlayer[p.id] || []) : null
+            return (
+              <div
+                key={p.id}
+                className={`rank-item-static expandable${open ? ' is-open' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-expanded={open}
+                onClick={(e) => toggle(p, e)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    toggle(p, e)
+                  }
+                }}
+              >
+                {/* 名次取后端的并列名次，不用下标 —— 同积分同存活必须并列（见积分榜同款说明） */}
+                <RankRow player={p} rank={p.rank ?? i + 1} maxScore={maxScore} animateIndex={i} />
+                <div className={`rank-detail ${open ? 'show' : ''}`}>
+                  {open && (loading ? (
+                    <div className="detail-note">加载中...</div>
+                  ) : rows.length === 0 ? (
+                    <div className="detail-note">暂无对局记录</div>
+                  ) : (
+                    rows.map((d) => (
+                      <div className="detail-row" key={d.id}>
+                        <span className="d-left">
+                          <span className="d-top">
+                            <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
+                              {d.is_survivor ? '存' : '亡'}
+                            </span>
+                            {matchNoById.has(d.id) && (
+                              <span className="d-no">第 {matchNoById.get(d.id)} 局</span>
+                            )}
+                          </span>
+                          <span className="d-date">
+                            {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}
+                          </span>
                         </span>
-                        {matchNoById.has(d.id) && (
-                          <span className="d-no">第 {matchNoById.get(d.id)} 局</span>
-                        )}
-                      </span>
-                      <span className="d-date">
-                        {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}
-                      </span>
-                    </span>
-                    <span className="d-rank">第 {d.rank} 名</span>
-                    <span className="score-val">{d.score}分</span>
-                  </div>
-                ))
-              ))}
-            </div>
-          </div>
-        )
-      })}
+                        <span className="d-rank">第 {d.rank} 名</span>
+                        <span className="score-val">{d.score}分</span>
+                      </div>
+                    ))
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* 逐局战绩：滚轮翻局，一次一局。标题、局号与空态都由 MatchPager 自己渲染。
-          这一段不参与滚动（flex:0 0 auto），永远整块可见。 */}
+          这一段不参与伸缩（flex:0 0 auto），永远整块可见。 */}
       <MatchPager matches={matches} />
     </div>
   )
