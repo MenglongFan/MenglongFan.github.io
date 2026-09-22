@@ -163,7 +163,8 @@ function SeasonDetail({ season, standings }) {
               }
             }}
           >
-            <RankRow player={p} rank={i + 1} maxScore={maxScore} animateIndex={i} />
+            {/* 名次取后端的并列名次，不用下标 —— 同积分同存活必须并列（见积分榜同款说明） */}
+            <RankRow player={p} rank={p.rank ?? i + 1} maxScore={maxScore} animateIndex={i} />
             <div className={`rank-detail ${open ? 'show' : ''}`}>
               {open && (loading ? (
                 <div className="detail-note">加载中...</div>

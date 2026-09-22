@@ -144,10 +144,19 @@ export default function StandingsPage() {
     )
   }
 
-  // 后端 /api/standings 已按 total_score DESC, survival_count DESC 排序，
-  // 所以下标 0 就是榜首，榜单从下标 1 开始（第 2 名）。
+  // 后端 /api/standings 已按 total_score DESC, survival_count DESC 排序，并给出并列名次，
+  // 所以下标 0 就是榜首，榜单从下标 1 开始。
+  //
+  // 名次一律取后端的 p.rank，不再用 i + 2：下标给不出并列 —— 积分和存活次数
+  // 完全相同的两个人（真实数据里 8 分 / 2 局 / 存活 1 次就有两个）会被排成
+  // 第 1 名和第 2 名，和「并列」的事实相矛盾。兜底 i + 2 只为兼容还没部署
+  // 新 Worker 时返回的旧响应。
   const champion = standings[0]
   const rest = standings.slice(1)
+
+  // 榜首卡只渲染一个人。若第一名并列，卡上标「并列榜首」，其余并列者带着
+  // 同一个「1」出现在下方榜单里，榜面和名次不会互相打架。
+  const topTied = standings.filter((p) => (p.rank ?? 1) === 1).length > 1
 
   return (
     <>
@@ -190,7 +199,7 @@ export default function StandingsPage() {
           >
             <div className="hero-badge">
               <Crown />
-              <span>本季榜首</span>
+              <span>{topTied ? '并列榜首' : '本季榜首'}</span>
             </div>
             <div className="hero-body">
               <Avatar url={champion.avatar_url} name={champion.name} className="hero-avatar" />
@@ -236,7 +245,9 @@ export default function StandingsPage() {
         )}
 
         {rest.map((p, i) => {
-          const rank = i + 2
+          // p.rank 由后端给（并列占位、跳号）。rank-2 的银环可能整季不出现 ——
+          // 有人并列第一时就该跳过第 2 名，颜色跟着名次走才对。
+          const rank = p.rank ?? i + 2
           const open = expandedId === p.id
           return (
             <SpotlightCard

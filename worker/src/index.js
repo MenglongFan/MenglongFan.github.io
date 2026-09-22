@@ -234,17 +234,27 @@ export default {
         }
         if (!season) return json({ season: null, standings: [] });
 
+        // 总名次同样不能用「数组下标」给 —— 积分和存活次数完全相同的两个人必须并列。
+        // 规则与逐局名次一致：名次 = 1 + 严格排在前面的人数（并列占位、跳号，
+        // 即 1 1 3 4 5 而不是 1 1 2 3 4），见 docs/adr/0005。
+        //
+        // 窗口函数不能和 GROUP BY 写在同一个 SELECT 里，所以先聚合出一层子查询再套 RANK()。
+        // 最外层再补一个 id ASC：并列时顺序不能靠 SQLite 的默认行为，否则榜首卡
+        // （standings[0]）会在两次刷新之间换人。
         const stmt = env.DB.prepare(
-          `SELECT p.id, p.name, p.avatar_url,
-             SUM(mr.score) as total_score,
-             COUNT(mr.id) as match_count,
-             SUM(mr.is_survivor) as survival_count
-           FROM match_results mr
-           JOIN players p ON mr.player_id = p.id
-           JOIN matches m ON mr.match_id = m.id
-           WHERE m.season_id = ?
-           GROUP BY p.id
-           ORDER BY total_score DESC, survival_count DESC`
+          `SELECT *, RANK() OVER (ORDER BY total_score DESC, survival_count DESC) AS rank
+             FROM (
+               SELECT p.id, p.name, p.avatar_url,
+                  SUM(mr.score) as total_score,
+                  COUNT(mr.id) as match_count,
+                  SUM(mr.is_survivor) as survival_count
+                FROM match_results mr
+                JOIN players p ON mr.player_id = p.id
+                JOIN matches m ON mr.match_id = m.id
+                WHERE m.season_id = ?
+                GROUP BY p.id
+             )
+             ORDER BY total_score DESC, survival_count DESC, id ASC`
         );
         const { results } = await stmt.bind(season.id).all();
         return json({ season, standings: results });
