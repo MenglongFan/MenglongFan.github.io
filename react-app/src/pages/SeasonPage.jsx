@@ -368,9 +368,12 @@ function SeasonDetail({ season, standings }) {
     setOpenId(next)
     // 展开后明细可能落在可视区外，滚进来看。这块是内滚容器，所以用 nearest 而不是 start，
     // 免得已经看得见的行被顶到顶上。
-    if (next && e && e.currentTarget) {
+    // 注意 currentTarget 必须在事件回调里**同步**取出来：React 处理完就把合成事件的
+    // currentTarget 置空了，等到 rAF 里再读就是 null（踩过：静默抛 TypeError）。
+    const el = e && e.currentTarget
+    if (next && el) {
       requestAnimationFrame(() => {
-        e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        if (el.isConnected) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       })
     }
   }
