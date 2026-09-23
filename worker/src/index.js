@@ -38,53 +38,63 @@ function calculateScores(results) {
 // 末尾三名罚金计算（含同分平摊）
 // 输入：积分榜（按 total_score 降序，即第一名在前）
 // 输出：[{ player_id, player_name, amount }]
+//
+// 规则只有一条：**同分即同排名 —— 一个并列组共享「它所占据的那些档位」的金额之和，
+// 再整组平摊。**
+//
+// 档位（按名次从低到高）：倒数第一 15 元 / 倒数第二 10 元 / 倒数第三 5 元。
+//
+// 关键在「它所占据的那些档位」要按**并列组**算，不能只数位置上的三个。
+// 以前是 `standings.slice(-3)` —— 硬取三个位置，于是并列组一旦跨过末三位这条线
+// （后两名已定、倒数第三并列就是典型），线内那位缴满 5 元、线外那位永远缴 0。
+// 更糟的是谁在线内由 SQL 的排序键（total_score DESC, survival_count DESC）决定：
+// 两个同分的人只要存活次数不同，缴费人就会换一个 —— 同一份积分，换个赛季结果不同。
+//
+// 现在按并列组切分：把积分升序排列后扫一遍，每个同分组看它落在下标 0/1/2 里的
+// 是哪几席，那几席的档位金额合并，由**整组**（含界外成员）平摊。
+//
+// 金额用「分」做整数运算：并列组人数不整除档位总额时（7 人并列分 30 元 = 每人 4.2857…），
+// 除不尽的分发给组内排序靠前者，保证入账总额恒等于档位之和。
+const TIER_AMOUNTS_CENTS = [1500, 1000, 500]; // 倒数第一 / 倒数第二 / 倒数第三
+
 function calculateBottomThreeFines(standings) {
   if (standings.length < 3) return [];
 
-  // 取最后三名（积分最低的三个），按积分升序排列 = s1(最低) s2 s3(相对高)
-  const bottom = standings.slice(-3).slice().sort((a, b) => a.total_score - b.total_score);
-  const [p1, p2, p3] = bottom; // p1=最后一名(最低分), p2=倒数第二, p3=倒数第三
+  // 升序：asc[0] 是最后一名
+  const asc = standings.slice().sort((a, b) => a.total_score - b.total_score);
+  const fines = [];
 
-  const s1 = p1.total_score;
-  const s2 = p2.total_score;
-  const s3 = p3.total_score;
+  let i = 0;
+  while (i < asc.length) {
+    // [i, j) 是同分的一段（升序排列保证同分连续）
+    let j = i;
+    while (j < asc.length && asc[j].total_score === asc[i].total_score) j++;
 
-  // 情况 1：三者同分
-  if (s1 === s2 && s2 === s3) {
-    const each = 30 / 3;
-    return [
-      { player_id: p1.id, player_name: p1.name, amount: each },
-      { player_id: p2.id, player_name: p2.name, amount: each },
-      { player_id: p3.id, player_name: p3.name, amount: each },
-    ];
+    // 这一段占了末三位（下标 0/1/2）里的哪几席
+    const firstInside = Math.min(i, 3);
+    const lastInside = Math.min(j, 3);
+
+    if (lastInside > firstInside) {
+      let poolCents = 0;
+      for (let k = firstInside; k < lastInside; k++) poolCents += TIER_AMOUNTS_CENTS[k];
+
+      const n = j - i;
+      const base = Math.floor(poolCents / n);
+      const extra = poolCents - base * n; // 除不尽的分，发给组内靠前者
+
+      for (let k = i; k < j; k++) {
+        fines.push({
+          player_id: asc[k].id,
+          player_name: asc[k].name,
+          amount: (base + (k - i < extra ? 1 : 0)) / 100,
+        });
+      }
+    }
+
+    i = j;
   }
 
-  // 情况 2：后两者同分（最后一名与倒数第二名同分）
-  if (s1 === s2 && s2 !== s3) {
-    const each = 25 / 2;
-    return [
-      { player_id: p1.id, player_name: p1.name, amount: each },
-      { player_id: p2.id, player_name: p2.name, amount: each },
-      { player_id: p3.id, player_name: p3.name, amount: 5 },
-    ];
-  }
-
-  // 情况 3：前两者同分（倒数第二名与倒数第三名同分）
-  if (s1 !== s2 && s2 === s3) {
-    const each = 15 / 2;
-    return [
-      { player_id: p1.id, player_name: p1.name, amount: 15 },
-      { player_id: p2.id, player_name: p2.name, amount: each },
-      { player_id: p3.id, player_name: p3.name, amount: each },
-    ];
-  }
-
-  // 情况 4：都不同分
-  return [
-    { player_id: p1.id, player_name: p1.name, amount: 15 },
-    { player_id: p2.id, player_name: p2.name, amount: 10 },
-    { player_id: p3.id, player_name: p3.name, amount: 5 },
-  ];
+  return fines;
 }
 
 // 获取当前奖池余额
@@ -152,7 +162,9 @@ async function settleSeason(db, seasonId) {
     ).bind(seasonId),
   ];
   for (const fine of fines) {
-    balance += fine.amount;
+    // 平摊会出现 4.29 这种二进制除不尽的金额，直接累加会飘：
+    // 100 + 4.29×4 + 4.28×3 得到 130.00000000000003。余额是要展示给玩家看的，每步收口到分。
+    balance = Math.round((balance + fine.amount) * 100) / 100;
     statements.push(db.prepare(
       `INSERT INTO prize_pool_transactions (season_id, player_id, type, amount, description, balance)
        VALUES (?, ?, 'fine', ?, ?, ?)`
@@ -506,8 +518,12 @@ export default {
         const currentBalance = await getCurrentBalance(env.DB);
 
         // 各玩家贡献榜
+        // ROUND(..., 2) 是防御性收口，不是修 bug：平摊会产生 4.29 这种二进制除不尽的金额，
+        // 但 SQLite 的 SUM 带补偿求和（实测 300 条随机分位金额累加不飘），所以目前本来也是准的。
+        // 这里是要直接展示给玩家看的钱数，多收口一次不吃亏。
         const { results: contributions } = await env.DB.prepare(
-          `SELECT p.id, p.name, p.avatar_url, COALESCE(SUM(ppt.amount), 0) as total_amount
+          `SELECT p.id, p.name, p.avatar_url,
+             ROUND(COALESCE(SUM(ppt.amount), 0), 2) as total_amount
            FROM prize_pool_transactions ppt
            JOIN players p ON ppt.player_id = p.id
            WHERE ppt.type = 'fine'

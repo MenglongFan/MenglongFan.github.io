@@ -535,7 +535,9 @@ function ActiveSeasonChoice({ active, intent, onPick }) {
 // 那是真金白银进了奖池，房主要能核对是谁交的、交了多少。
 // 参与人数不足 3 人时凑不出末位三名，明确写出来，别让人以为漏算了。
 function FineResult({ seasonName, fines, newBalance, onViewPrize }) {
-  const total = fines.reduce((sum, f) => sum + f.amount, 0)
+  // 平摊可能出现 4.29 这类除不尽的金额，直接累加会显示成 30.000000000000004 元。
+  // 合计收口到分。
+  const total = Math.round(fines.reduce((sum, f) => sum + f.amount, 0) * 100) / 100
   return (
     <>
       <div className="fine-result">
