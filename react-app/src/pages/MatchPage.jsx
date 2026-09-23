@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, seasonStatus } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
@@ -129,8 +129,10 @@ export default function MatchPage() {
   }, [])
 
   const openEntry = async () => {
-    if (!season || !season.is_active) {
-      showToast('请先新建赛季', 'error')
+    // 只有「进行中」的赛季能录入。已暂存的不算 —— 暂存的意思是「先搁着」，
+    // 它上面的对局应该冻住，要接着打必须先恢复。
+    if (seasonStatus(season) !== 'active') {
+      showToast('请先新建或恢复赛季', 'error')
       navigate('/season')
       return
     }
@@ -162,15 +164,15 @@ export default function MatchPage() {
     )
   }
 
-  if (!season || !season.is_active) {
+  if (seasonStatus(season) !== 'active') {
     return (
       <>
-        <PageHead eyebrow="录入" meta="无活跃赛季" title="录入战绩" sub="新建赛季后即可录入对局" muted />
+        <PageHead eyebrow="录入" meta="无进行中赛季" title="录入战绩" sub="新建或恢复赛季后即可录入对局" muted />
         <div className="standings">
           <div className="standings-empty">
             <div className="seal">战</div>
-            <div className="big">尚无活跃赛季</div>
-            <div>到「赛季」页新建赛季后即可录入</div>
+            <div className="big">尚无进行中的赛季</div>
+            <div>到「赛季」页新建赛季，或恢复已暂存的赛季</div>
           </div>
         </div>
       </>

@@ -1,6 +1,10 @@
 // 三国杀国战积分系统 · API 工具模块
 
-const API_BASE = 'https://guozhan-scoring.menglongfan.workers.dev';
+// 后端地址。默认走线上 Worker；本地起沙盒（wrangler dev）验证时用
+//   VITE_API_BASE=http://127.0.0.1:8787 npm run build
+// 覆盖掉，这样能对着本地库把「建赛季 / 暂存 / 恢复 / 结束」整条链路点一遍，
+// 不用拿线上真实赛季当试验品。不传这个变量时行为与以前完全一致。
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://guozhan-scoring.menglongfan.workers.dev';
 
 // 全局 houseKey，由 auth 模块设置
 let houseKey = '';
@@ -46,6 +50,17 @@ export function getDefaultSeasonName() {
   const year = now.getFullYear();
   const week = getISOWeek(now);
   return `${year}年第${week}周`;
+}
+
+// 赛季三态：active 进行中 / paused 已暂存 / ended 已结束
+//
+// 后端 seasons.status 是唯一真相。这里对旧响应兜一次底（老 Worker 只返回 is_active），
+// 免得前后端版本错开的那段时间页面直接白屏 —— 部署不是原子的，这个窗口真实存在。
+export const SEASON_STATUS_TEXT = { active: '进行中', paused: '已暂存', ended: '已结束' }
+
+export function seasonStatus(season) {
+  if (!season) return null
+  return season.status || (season.is_active ? 'active' : 'ended')
 }
 
 // 处理头像 URL：站内相对路径统一解析为根绝对路径，

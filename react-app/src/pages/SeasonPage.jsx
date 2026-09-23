@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react'
-import { api, getDefaultSeasonName } from '../lib/api'
+import { api, getDefaultSeasonName, seasonStatus, SEASON_STATUS_TEXT } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
@@ -476,24 +476,90 @@ function SeasonDetail({ season, standings }) {
   )
 }
 
+// 赛季三态：active 进行中 / paused 已暂存 / ended 已结束。
+// 判定与文案都在 lib/api.js 里，三个页面共用一套，别各写一份。
 // 赛季列表项：主页面和「赛季管理」弹窗共用
-function SeasonItem({ s, onEnd, onView }) {
+function SeasonItem({ s, onPause, onResume, onEnd, onView }) {
+  const status = seasonStatus(s)
   return (
-    <div className={`season-item ${s.is_active ? 'active' : ''}`}>
+    <div className={`season-item ${status}`}>
       <div className="s-main">
         <div className="s-name">{s.name}</div>
         <div className="s-meta">
           {s.started_at ? s.started_at.slice(0, 10) : ''}
-          {s.ended_at ? ' → ' + s.ended_at.slice(0, 10) : ' · 进行中'}
+          {status === 'ended'
+            ? (s.ended_at ? ' → ' + s.ended_at.slice(0, 10) : '')
+            : ` · ${SEASON_STATUS_TEXT[status]}`}
         </div>
       </div>
       <div className="s-actions">
         <span className="s-matches">{s.match_count}局</span>
-        {s.is_active
-          ? <button className="s-btn" onClick={() => onEnd(s.id)}>结束</button>
-          : <button className="s-btn gold" onClick={() => onView(s.id)}>查看</button>}
+        {status === 'active' && (
+          <button className="s-btn quiet" onClick={() => onPause(s.id)}>暂存</button>
+        )}
+        {status === 'paused' && (
+          <button className="s-btn gold" onClick={() => onResume(s.id)}>恢复</button>
+        )}
+        {status === 'ended'
+          ? <button className="s-btn gold" onClick={() => onView(s.id)}>查看</button>
+          : <button className="s-btn" onClick={() => onEnd(s.id)}>结束</button>}
       </div>
     </div>
+  )
+}
+
+// 当前有进行中的赛季时，必须让房主明说怎么处理它 —— 这个组件就是替掉
+// 后端原来「静默把旧赛季标成已结束、却不算罚金」的行为。
+// 不做成单选框是因为两个选项的后果差得远（一个可逆、一个不可逆），
+// 各自带一行说明比两个光秃秃的圆点清楚。
+function ActiveSeasonChoice({ active, intent, onPick }) {
+  return (
+    <>
+      <div className="resolve-hint">
+        「<b>{active.name}</b>」正在进行中。
+        {intent === 'resume' ? '要恢复另一个赛季，' : '要开新赛季，'}得先安排它：
+      </div>
+      <button className="resolve-opt" onClick={() => onPick('pause')}>
+        <span className="ro-name">暂存它<i className="ro-tag">可恢复</i></span>
+        <span className="ro-desc">战绩全部保留，以后随时恢复继续打；不结算罚金</span>
+      </button>
+      <button className="resolve-opt" onClick={() => onPick('end')}>
+        <span className="ro-name">结束它<i className="ro-tag danger">不可逆</i></span>
+        <span className="ro-desc">按现有战绩结算末位罚金并入账奖池，之后不能再改</span>
+      </button>
+    </>
+  )
+}
+
+// 罚金明细。赛季结束时必须给这张单子（而不是只弹个 toast）——
+// 那是真金白银进了奖池，房主要能核对是谁交的、交了多少。
+// 参与人数不足 3 人时凑不出末位三名，明确写出来，别让人以为漏算了。
+function FineResult({ seasonName, fines, newBalance, onViewPrize }) {
+  const total = fines.reduce((sum, f) => sum + f.amount, 0)
+  return (
+    <>
+      <div className="fine-result">
+        <div className="fine-result-title">
+          {seasonName ? `${seasonName} · ` : ''}罚金明细
+        </div>
+        {fines.length === 0 && (
+          <div className="fine-empty">本赛季参与人数不足 3 人，无末位罚金</div>
+        )}
+        {fines.map((f) => (
+          <div className="fine-item" key={f.player_id}>
+            <Avatar url={null} name={f.player_name} className="fine-avatar" />
+            <span className="fine-name">{f.player_name}</span>
+            <span className="fine-amount">{f.amount}元</span>
+          </div>
+        ))}
+        <div className="fine-result-total">
+          奖池入账 <b>{total}元</b> · 新余额 {newBalance}元
+        </div>
+      </div>
+      <div className="cta" style={{ marginTop: 16 }}>
+        <GoldButton onClick={onViewPrize}>查看奖池</GoldButton>
+      </div>
+    </>
   )
 }
 
@@ -502,12 +568,27 @@ export default function SeasonPage() {
   const ensureAuth = useAuthGate()
   const [seasons, setSeasons] = useState([])
   const createSubmitRef = useRef(null)
+  // 建新赛季时对「当前进行中的赛季」的处理方式：'pause' | 'end' | null
+  const resolveRef = useRef(null)
 
+  // load() 返回刚拿到的列表，调用方要拿它去开弹窗（见 openManagerWith）
+  //
+  // seasonsRef 存同一份数据的最新值，给处理函数读。
+  // 处理函数（openCreate / resumeSeason / endSeason）**不能读 state 里的 seasons**：
+  // 它们会被塞进 setModalContent 的 JSX 里，而那份 JSX 连同它捕获的变量会被冻住，
+  // 弹窗里的按钮可能来自更早一次渲染。实测过：建完乙赛季后点甲的「恢复」，
+  // 闭包里的 seasons 还是「只有甲」那一份，于是找不到「另一个进行中的赛季」，
+  // 跳过选择弹窗直接发请求，被后端 409 拦下 —— 后端兜住了，但体验是错的。
+  const seasonsRef = useRef([])
   const load = async () => {
     try {
-      setSeasons(await api('/api/seasons'))
+      const list = await api('/api/seasons')
+      seasonsRef.current = list
+      setSeasons(list)
+      return list
     } catch (e) {
       showToast(e.message, 'error')
+      return null
     }
   }
   useEffect(() => { load() }, [])
@@ -515,45 +596,95 @@ export default function SeasonPage() {
   // 结束罚金弹窗里的「查看奖池」需要路由跳转
   const navigatePrize = () => { window.location.hash = '#/prize' }
 
-  const openManager = () => {
+  // 弹「赛季管理」列表。
+  //
+  // list 从参数进来，**不读闭包里的 seasons** —— setModalContent 会把传进去的 JSX
+  // 连同它捕获的变量一起冻住，而调用它的那个函数可能来自更早的一次渲染。
+  // 「建完赛季再打开管理弹窗」就是这条：闭包里的 seasons 还是建之前那一份，
+  // 弹窗会显示旧列表（页面列表却是新的，看着像数据没保存）。
+  const openManagerWith = (list) => {
     setModalContent('赛季管理',
       <div>
-        {seasons.length === 0 && <div className="prize-empty">暂无赛季</div>}
-        {seasons.map((s) => (
-          <SeasonItem key={s.id} s={s} onEnd={endSeason} onView={viewSeason} />
+        {list.length === 0 && <div className="prize-empty">暂无赛季</div>}
+        {list.map((s) => (
+          <SeasonItem key={s.id} s={s}
+            onPause={pauseSeason} onResume={resumeSeason}
+            onEnd={endSeason} onView={viewSeason} />
         ))}
       </div>,
       <button className="btn btn-ghost" onClick={closeModal}>完成</button>)
   }
 
-  const openCreate = async () => {
+  // 重新拉一次再弹，保证弹窗里的列表永远是最新的
+  const openManager = async () => {
+    const list = await load()
+    if (list) openManagerWith(list)
+  }
+
+  // 罚金明细弹窗。两条路都用它：直接结束赛季，以及建新赛季时顺带结束旧赛季。
+  const showFines = (seasonName, fines, newBalance) => {
+    setModalContent('赛季已结束',
+      <FineResult seasonName={seasonName} fines={fines} newBalance={newBalance}
+        onViewPrize={() => { closeModal(); navigatePrize() }} />,
+      <button className="btn btn-ghost" onClick={openManager}>返回</button>)
+  }
+
+  const createForm = async () => {
+    let players = []
+    try {
+      players = await api('/api/players')
+    } catch (e) {
+      showToast(e.message, 'error')
+      return
+    }
+    setModalContent('新建赛季',
+      <SeasonCreate players={players} submitRef={createSubmitRef} />,
+      <>
+        <button className="btn btn-ghost" onClick={openManager}>上一步</button>
+        <button className="btn btn-primary" onClick={submitCreate}>创建赛季</button>
+      </>)
+  }
+
+  const submitCreate = async () => {
+    const { name, ids } = createSubmitRef.current ? createSubmitRef.current() : { name: '', ids: [] }
+    if (!name) { showToast('请输入赛季名称', 'error'); return }
+    if (ids.length < 5 || ids.length > 10) { showToast('参赛人数须为 5-10 人', 'error'); return }
+    try {
+      const body = { name, player_ids: ids }
+      // 有进行中的赛季时，把房主选的处理方式一起带上。后端不接受含糊其辞
+      // （缺这个字段且有活跃赛季会返回 409），所以这里必须显式传。
+      if (resolveRef.current) body.resolve_active = resolveRef.current
+      const result = await api('/api/season', { method: 'POST', auth: true, body: JSON.stringify(body) })
+      const list = await load()
+
+      if (result.resolved_active && result.resolved_active.action === 'end') {
+        // 旧赛季被结算了 —— 钱进奖池了，得给单子
+        showFines(result.resolved_active.name, result.settled_fines || [], result.new_balance)
+      } else if (result.resolved_active) {
+        openManagerWith(list)
+        showToast(`已暂存「${result.resolved_active.name}」，新赛季已创建`, 'success')
+      } else {
+        openManagerWith(list)
+        showToast('赛季已创建', 'success')
+      }
+    } catch (e) { showToast(e.message, 'error') }
+  }
+
+  const openCreate = () => {
     ensureAuth('新建赛季', async () => {
-      let players = []
-      try {
-        players = await api('/api/players')
-      } catch (e) {
-        showToast(e.message, 'error')
+      resolveRef.current = null
+      const active = seasonsRef.current.find((s) => seasonStatus(s) === 'active')
+      if (active) {
+        // 有进行中的赛季：先让房主决定它怎么办，不替他猜。
+        // 这里以前是后端直接静默把旧赛季标成已结束（不结算罚金，而且 is_active 归零后
+        // 再也补不回来）。现在把这个决定交回给用户，选完才进填表那一步。
+        setModalContent('当前赛季怎么办',
+          <ActiveSeasonChoice active={active} intent="create"
+            onPick={(action) => { resolveRef.current = action; createForm() }} />,
+          <button className="btn btn-ghost" onClick={openManager}>取消</button>)
         return
       }
-      setModalContent('新建赛季',
-        <SeasonCreate players={players} submitRef={createSubmitRef} />,
-        <>
-          <button className="btn btn-ghost" onClick={openManager}>上一步</button>
-          <button
-            className="btn btn-primary"
-            onClick={async () => {
-              const { name, ids } = createSubmitRef.current ? createSubmitRef.current() : { name: '', ids: [] }
-              if (!name) { showToast('请输入赛季名称', 'error'); return }
-              if (ids.length < 5 || ids.length > 10) { showToast('参赛人数须为 5-10 人', 'error'); return }
-              try {
-                await api('/api/season', { method: 'POST', auth: true, body: JSON.stringify({ name, player_ids: ids }) })
-                await load()
-                openManager()
-                showToast('赛季已创建', 'success')
-              } catch (e) { showToast(e.message, 'error') }
-            }}
-          >创建赛季</button>
-        </>)
+      await createForm()
     })
   }
 
@@ -568,42 +699,73 @@ export default function SeasonPage() {
     }
   }
 
-  const endSeason = (id) => {
+  // 暂存：保留战绩、不结算罚金、可恢复。是这一组操作里唯一可逆的，
+  // 所以文案里明说「以后可以恢复」，让人敢按。
+  const pauseSeason = (id) => {
     ensureAuth('赛季管理', () => {
-      confirmAction('确定结束当前赛季？结束后将自动计算末位罚金并入账奖池。', async () => {
+      confirmAction('暂存这个赛季？战绩全部保留，以后可以恢复继续打，不会结算罚金。', async () => {
         try {
-          const result = await api(`/api/season/${id}/end`, { method: 'POST', auth: true })
-          await load()
-          openManager()
-          showToast('赛季已结束', 'success')
-          if (result.fines && result.fines.length > 0) {
-            setModalContent('赛季已结束',
-              <>
-                <div className="fine-result">
-                  <div className="fine-result-title">本期罚金明细</div>
-                  {result.fines.map((f) => (
-                    <div className="fine-item" key={f.player_id}>
-                      <Avatar url={null} name={f.player_name} className="fine-avatar" />
-                      <span className="fine-name">{f.player_name}</span>
-                      <span className="fine-amount">{f.amount}元</span>
-                    </div>
-                  ))}
-                  <div className="fine-result-total">
-                    奖池入账 <b>{result.fines.reduce((s, f) => s + f.amount, 0)}元</b> · 新余额 {result.new_balance}元
-                  </div>
-                </div>
-                <div className="cta" style={{ marginTop: 16 }}>
-                  <GoldButton onClick={() => { closeModal(); navigatePrize() }}>查看奖池</GoldButton>
-                </div>
-              </>,
-              <button className="btn btn-ghost" onClick={openManager}>返回</button>)
-          }
+          await api(`/api/season/${id}/pause`, { method: 'POST', auth: true })
+          const list = await load()
+          openManagerWith(list)
+          showToast('赛季已暂存', 'success')
         } catch (e) { showToast(e.message, 'error') }
       })
     })
   }
 
-  const activeCount = seasons.filter((s) => s.is_active).length
+  const doResume = async (id, action) => {
+    try {
+      const result = await api(`/api/season/${id}/resume`, {
+        method: 'POST', auth: true,
+        body: JSON.stringify(action ? { resolve_active: action } : {}),
+      })
+      const list = await load()
+      if (result.resolved_active && result.resolved_active.action === 'end') {
+        showFines(result.resolved_active.name, result.settled_fines || [], result.new_balance)
+      } else if (result.resolved_active) {
+        openManagerWith(list)
+        showToast(`已暂存「${result.resolved_active.name}」，赛季已恢复`, 'success')
+      } else {
+        openManagerWith(list)
+        showToast('赛季已恢复', 'success')
+      }
+    } catch (e) { showToast(e.message, 'error') }
+  }
+
+  const resumeSeason = (id) => {
+    ensureAuth('赛季管理', () => {
+      // 同一时刻只能有一个进行中的赛季，所以恢复之前要先看有没有别的在跑。
+      // 有的话同样交给用户决定（后端也会 409 拦一道）。
+      const active = seasonsRef.current.find((s) => seasonStatus(s) === 'active' && s.id !== id)
+      if (!active) { doResume(id, null); return }
+      setModalContent('当前赛季怎么办',
+        <ActiveSeasonChoice active={active} intent="resume"
+          onPick={(action) => doResume(id, action)} />,
+        <button className="btn btn-ghost" onClick={openManager}>取消</button>)
+    })
+  }
+
+  const endSeason = (id) => {
+    ensureAuth('赛季管理', () => {
+      const s = seasonsRef.current.find((x) => x.id === id)
+      confirmAction('确定结束这个赛季？结束后将自动计算末位罚金并入账奖池，且不可再修改。', async () => {
+        try {
+          const result = await api(`/api/season/${id}/end`, { method: 'POST', auth: true })
+          await load()
+          showFines(s ? s.name : '', result.fines || [], result.new_balance)
+        } catch (e) { showToast(e.message, 'error') }
+      })
+    })
+  }
+
+  const countOf = (st) => seasons.filter((s) => seasonStatus(s) === st).length
+  const running = countOf('active')
+  const shelved = countOf('paused')
+  const headSub = [
+    running ? `${running} 个赛季进行中` : null,
+    shelved ? `${shelved} 个已暂存` : null,
+  ].filter(Boolean).join(' · ') || '新建赛季 · 查看战绩 · 结算罚金'
 
   return (
     <>
@@ -611,7 +773,7 @@ export default function SeasonPage() {
         eyebrow="赛季"
         meta={`${seasons.length} 个`}
         title="赛季管理"
-        sub={activeCount > 0 ? `${activeCount} 个赛季进行中` : '新建赛季 · 查看战绩 · 结算罚金'}
+        sub={headSub}
       />
 
       <section className="standings">
@@ -624,7 +786,9 @@ export default function SeasonPage() {
         )}
 
         {seasons.map((s) => (
-          <SeasonItem key={s.id} s={s} onEnd={endSeason} onView={viewSeason} />
+          <SeasonItem key={s.id} s={s}
+            onPause={pauseSeason} onResume={resumeSeason}
+            onEnd={endSeason} onView={viewSeason} />
         ))}
 
         <div className="cta" style={{ marginTop: seasons.length ? 16 : 0 }}>

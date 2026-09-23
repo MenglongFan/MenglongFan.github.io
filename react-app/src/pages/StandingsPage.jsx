@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { api } from '../lib/api'
+import { api, seasonStatus, SEASON_STATUS_TEXT } from '../lib/api'
 import Avatar from '../components/Avatar'
 import PageHead from '../components/PageHead'
 import RankRow from '../components/RankRow'
@@ -124,20 +124,30 @@ export default function StandingsPage() {
   }
 
   // ---------- 赛季已建、尚无对局 ----------
+  //
+  // 空态文案要跟着赛季状态走：以前只有「进行中 / 已结束」两种，一律写「赛季尚未开始」。
+  // 现在 /api/standings 在没有进行中赛季时会回退到最近那个（可能是已结束或已暂存的），
+  // 再写「尚未开始」就自相矛盾了。
   if (standings.length === 0) {
+    const st = seasonStatus(season)
+    const empty = st === 'ended'
+      ? { seal: '空', big: '赛季已结束', hint: '本赛季没有留下对局记录' }
+      : st === 'paused'
+        ? { seal: '搁', big: '赛季已暂存', hint: '到「赛季」页恢复后才能继续录入' }
+        : { seal: '空', big: '赛季尚未开始', hint: '等待第一局录入' }
     return (
       <>
         <PageHead
           eyebrow={season.name}
-          meta={season.is_active ? '进行中' : '已结束'}
+          meta={SEASON_STATUS_TEXT[st] || ''}
           title="国战积分"
           sub="本赛季还没有对局记录"
         />
         <div className="standings">
           <div className="standings-empty">
-            <div className="seal">空</div>
-            <div className="big">赛季尚未开始</div>
-            <div>等待第一局录入</div>
+            <div className="seal">{empty.seal}</div>
+            <div className="big">{empty.big}</div>
+            <div>{empty.hint}</div>
           </div>
         </div>
       </>
@@ -161,7 +171,7 @@ export default function StandingsPage() {
   return (
     <>
       <PageHead
-        eyebrow={`${season.name}${season.is_active ? ' · 进行中' : ' · 已结束'}`}
+        eyebrow={`${season.name} · ${SEASON_STATUS_TEXT[seasonStatus(season)] || ''}`}
         meta={`${standings.length} 人参战`}
         title="国战积分"
         sub="按积分排序 · 点任意一行看逐局明细"

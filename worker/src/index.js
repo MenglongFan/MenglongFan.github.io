@@ -95,6 +95,74 @@ async function getCurrentBalance(db) {
   return row ? row.balance : 0;
 }
 
+// ---------- 赛季状态机 ----------
+// active 进行中 / paused 已暂存 / ended 已结束
+//
+// status 是唯一真相；is_active 是它的冗余投影（恒等于 status === 'active'），
+// 留着是因为读接口里有几处 `WHERE is_active = 1` 依赖它。
+// 两列必须一起改，所以**只允许通过 setSeasonStatus 写**。
+//
+// 为什么不做成 SQLite 生成列：现有列不能 ALTER 成 GENERATED，重建表的收益
+// 不值得这次的改动量；改成由 Worker 统一维护，代价是记住「别在别处单独写 is_active」。
+const SEASON_STATUSES = ['active', 'paused', 'ended'];
+
+async function setSeasonStatus(db, id, status) {
+  if (!SEASON_STATUSES.includes(status)) {
+    throw new Error(`未知赛季状态：${status}`);
+  }
+  await db.prepare(
+    `UPDATE seasons SET status = ?, is_active = ? WHERE id = ?`
+  ).bind(status, status === 'active' ? 1 : 0, id).run();
+}
+
+// 结束一个赛季并结算末位罚金，返回 { season, fines, new_balance, match_count }。
+//
+// 抽成函数是因为有两条路都要走**完整**结算：房主点「结束赛季」，以及
+// 「建新赛季时选择结束旧赛季」。以前建新赛季那条路只改状态、不结算 ——
+// 旧赛季被标成已结束却一分钱没入账，而且 is_active 归零后 /end 直接 400，
+// 再也补不回来。这就是这个 bug 的根，所以两条路必须共用同一段结算。
+async function settleSeason(db, seasonId) {
+  const season = await db.prepare(
+    `SELECT * FROM seasons WHERE id = ?`
+  ).bind(seasonId).first();
+  if (!season) return { error: '赛季不存在', status: 404 };
+  if (season.status === 'ended') return { error: '赛季已结束', status: 400 };
+
+  const { results: standings } = await db.prepare(
+    `SELECT p.id, p.name,
+       SUM(mr.score) as total_score,
+       COUNT(mr.id) as match_count,
+       SUM(mr.is_survivor) as survival_count
+     FROM match_results mr
+     JOIN players p ON mr.player_id = p.id
+     JOIN matches m ON mr.match_id = m.id
+     WHERE m.season_id = ?
+     GROUP BY p.id
+     ORDER BY total_score DESC, survival_count DESC`
+  ).bind(seasonId).all();
+
+  // 凑不出末位三名就不算罚金
+  const fines = standings.length >= 3 ? calculateBottomThreeFines(standings) : [];
+
+  let balance = await getCurrentBalance(db);
+  const statements = [
+    db.prepare(
+      `UPDATE seasons SET status = 'ended', is_active = 0,
+         ended_at = datetime('now'), prize_calculated = 1 WHERE id = ?`
+    ).bind(seasonId),
+  ];
+  for (const fine of fines) {
+    balance += fine.amount;
+    statements.push(db.prepare(
+      `INSERT INTO prize_pool_transactions (season_id, player_id, type, amount, description, balance)
+       VALUES (?, ?, 'fine', ?, ?, ?)`
+    ).bind(seasonId, fine.player_id, fine.amount, `${season.name}·末位罚金`, balance));
+  }
+  await db.batch(statements);
+
+  return { season, fines, new_balance: balance, match_count: standings.length };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -118,7 +186,8 @@ export default {
           `SELECT s.*,
              (SELECT COUNT(*) FROM matches m WHERE m.season_id = s.id) as match_count
            FROM seasons s
-           ORDER BY s.is_active DESC, s.started_at DESC`
+           ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+                    s.started_at DESC, s.id DESC`
         );
         const { results } = await stmt.all();
         return json(results);
@@ -145,13 +214,35 @@ export default {
         if (playerIds.length < 5 || playerIds.length > 10) {
           return json({ error: '参赛人数须为 5-10 人' }, 400);
         }
-        // 结束当前活跃赛季
-        await env.DB.prepare(
-          `UPDATE seasons SET is_active = 0, ended_at = datetime('now') WHERE is_active = 1`
-        ).run();
+        // 当前那个进行中的赛季怎么处理，必须由调用方明说。
+        //
+        // 以前这里是 `UPDATE seasons SET is_active = 0, ended_at = now() WHERE is_active = 1`，
+        // 无条件静默把旧赛季标成已结束 —— 却不算罚金、不置 prize_calculated。
+        // 更要命的是 is_active 归零后 /end 直接 400，那笔罚金永远补不回来。
+        // 现在缺省不猜：有活跃赛季又没给 resolve_active，就 409 让前端去问人。
+        const active = await env.DB.prepare(
+          `SELECT id, name FROM seasons WHERE is_active = 1 LIMIT 1`
+        ).first();
+
+        const resolve = body.resolve_active;
+        if (active && resolve !== 'pause' && resolve !== 'end') {
+          return json({
+            error: '当前还有进行中的赛季，请先选择「暂存」或「结束」',
+            active_season: active,
+          }, 409);
+        }
+
+        let settled = null;
+        if (active && resolve === 'pause') {
+          await setSeasonStatus(env.DB, active.id, 'paused');
+        } else if (active && resolve === 'end') {
+          settled = await settleSeason(env.DB, active.id);
+          if (settled.error) return json({ error: settled.error }, settled.status);
+        }
+
         // 创建新赛季
         const result = await env.DB.prepare(
-          `INSERT INTO seasons (name) VALUES (?)`
+          `INSERT INTO seasons (name, status) VALUES (?, 'active')`
         ).bind(body.name).run();
         const seasonId = result.meta.last_row_id;
         // 绑定参赛选手
@@ -161,66 +252,89 @@ export default {
           ).bind(seasonId, pid)
         );
         await env.DB.batch(inserts);
-        return json({ id: seasonId, name: body.name, is_active: 1, player_count: playerIds.length });
+
+        return json({
+          id: seasonId, name: body.name, status: 'active', is_active: 1,
+          player_count: playerIds.length,
+          resolved_active: active ? { id: active.id, name: active.name, action: resolve } : null,
+          settled_fines: settled ? settled.fines : null,
+          new_balance: settled ? settled.new_balance : null,
+        });
       }
 
-      // POST /api/season/:id/end — 结束赛季 + 计算罚金 + 奖池入账
-      const endMatch = path.match(/^\/api\/season\/(\d+)\/end$/);
-      if (endMatch && method === 'POST') {
+      // POST /api/season/:id/pause — 暂存赛季（保留在列表里、可恢复、不结算罚金）
+      const pauseMatch = path.match(/^\/api\/season\/(\d+)\/pause$/);
+      if (pauseMatch && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
-        const seasonId = parseInt(endMatch[1]);
+        const seasonId = parseInt(pauseMatch[1]);
 
-        // 检查赛季是否存在且未结束
         const season = await env.DB.prepare(
           `SELECT * FROM seasons WHERE id = ?`
         ).bind(seasonId).first();
         if (!season) return json({ error: '赛季不存在' }, 404);
-        if (!season.is_active) return json({ error: '赛季已结束' }, 400);
+        if (season.status === 'ended') return json({ error: '赛季已结束，无法暂存' }, 400);
+        if (season.status === 'paused') return json({ ok: true, status: 'paused', unchanged: true });
 
-        // 获取赛季积分榜
-        const { results: standings } = await env.DB.prepare(
-          `SELECT p.id, p.name,
-             SUM(mr.score) as total_score,
-             COUNT(mr.id) as match_count,
-             SUM(mr.is_survivor) as survival_count
-           FROM match_results mr
-           JOIN players p ON mr.player_id = p.id
-           JOIN matches m ON mr.match_id = m.id
-           WHERE m.season_id = ?
-           GROUP BY p.id
-           ORDER BY total_score DESC, survival_count DESC`
-        ).bind(seasonId).all();
+        await setSeasonStatus(env.DB, seasonId, 'paused');
+        return json({ ok: true, status: 'paused' });
+      }
 
-        // 至少需要 3 名玩家参与才能计算罚金
-        let fines = [];
-        if (standings.length >= 3) {
-          fines = calculateBottomThreeFines(standings);
+      // POST /api/season/:id/resume — 恢复暂存的赛季
+      const resumeMatch = path.match(/^\/api\/season\/(\d+)\/resume$/);
+      if (resumeMatch && method === 'POST') {
+        if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
+        const seasonId = parseInt(resumeMatch[1]);
+        const body = await request.json().catch(() => ({}));
+
+        const season = await env.DB.prepare(
+          `SELECT * FROM seasons WHERE id = ?`
+        ).bind(seasonId).first();
+        if (!season) return json({ error: '赛季不存在' }, 404);
+        if (season.status === 'ended') return json({ error: '赛季已结束，无法恢复' }, 400);
+
+        // 同一时刻只能有一个进行中的赛季 —— 所有读接口都假设 `WHERE is_active = 1`
+        // 只有一行（`.first()` 拿到谁是不确定的）。所以恢复一个暂存的赛季时，
+        // 若已经有别的在跑，同样要求调用方明说怎么处理，不静默抢占。
+        const active = await env.DB.prepare(
+          `SELECT id, name FROM seasons WHERE is_active = 1 AND id != ? LIMIT 1`
+        ).bind(seasonId).first();
+
+        const resolve = body.resolve_active;
+        if (active && resolve !== 'pause' && resolve !== 'end') {
+          return json({
+            error: `「${active.name}」正在进行中，请先选择「暂存」或「结束」它`,
+            active_season: active,
+          }, 409);
         }
 
-        // 事务：结束赛季 + 写入罚金流水
-        const currentBalance = await getCurrentBalance(env.DB);
-        let balance = currentBalance;
-
-        // 使用 batch 模拟事务
-        const statements = [];
-
-        // 更新赛季状态
-        statements.push(env.DB.prepare(
-          `UPDATE seasons SET is_active = 0, ended_at = datetime('now'), prize_calculated = 1 WHERE id = ?`
-        ).bind(seasonId));
-
-        // 写入每条罚金流水
-        for (const fine of fines) {
-          balance += fine.amount;
-          statements.push(env.DB.prepare(
-            `INSERT INTO prize_pool_transactions (season_id, player_id, type, amount, description, balance)
-             VALUES (?, ?, 'fine', ?, ?, ?)`
-          ).bind(seasonId, fine.player_id, fine.amount, `${season.name}·末位罚金`, balance));
+        let settled = null;
+        if (active && resolve === 'pause') {
+          await setSeasonStatus(env.DB, active.id, 'paused');
+        } else if (active && resolve === 'end') {
+          settled = await settleSeason(env.DB, active.id);
+          if (settled.error) return json({ error: settled.error }, settled.status);
         }
 
-        await env.DB.batch(statements);
+        await setSeasonStatus(env.DB, seasonId, 'active');
+        return json({
+          ok: true, id: seasonId, name: season.name, status: 'active', is_active: 1,
+          resolved_active: active ? { id: active.id, name: active.name, action: resolve } : null,
+          settled_fines: settled ? settled.fines : null,
+          new_balance: settled ? settled.new_balance : null,
+        });
+      }
 
-        return json({ ok: true, fines, new_balance: balance, match_count: standings.length });
+      // POST /api/season/:id/end — 结束赛季 + 计算罚金 + 奖池入账
+      // 暂存中的赛季也允许结束（等于「这个赛季不打了，结账」），判据是 status 而不是 is_active。
+      const endMatch = path.match(/^\/api\/season\/(\d+)\/end$/);
+      if (endMatch && method === 'POST') {
+        if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
+        const result = await settleSeason(env.DB, parseInt(endMatch[1]));
+        if (result.error) return json({ error: result.error }, result.status);
+        return json({
+          ok: true, fines: result.fines,
+          new_balance: result.new_balance, match_count: result.match_count,
+        });
       }
 
       // GET /api/standings — 排名榜（默认当前活跃赛季）
@@ -230,7 +344,15 @@ export default {
         if (seasonId) {
           season = await env.DB.prepare(`SELECT * FROM seasons WHERE id = ?`).bind(seasonId).first();
         } else {
-          season = await env.DB.prepare(`SELECT * FROM seasons WHERE is_active = 1`).first();
+          // 优先进行中的赛季；没有的话**不要直接返回空** —— 赛季全都暂存或结束时，
+          // 积分榜页会显示「尚无赛季」，可赛季明明还在，只是没在跑，那个空态是错的。
+          // 退而取最近建的那个（不论状态），页头会把「已暂存 / 已结束」标出来。
+          season = await env.DB.prepare(
+            `SELECT * FROM seasons
+              ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+                       started_at DESC, id DESC
+              LIMIT 1`
+          ).first();
         }
         if (!season) return json({ season: null, standings: [] });
 
@@ -348,12 +470,13 @@ export default {
           return json({ error: '参与人数须为 5-10 人' }, 400);
         }
 
-        // 检查赛季是否已结束
+        // 检查赛季是否还能录入
         const season = await env.DB.prepare(
-          `SELECT is_active FROM seasons WHERE id = ?`
+          `SELECT is_active, status FROM seasons WHERE id = ?`
         ).bind(season_id).first();
         if (!season) return json({ error: '赛季不存在' }, 404);
-        if (!season.is_active) return json({ error: '赛季已结束，无法录入成绩' }, 400);
+        if (season.status === 'ended') return json({ error: '赛季已结束，无法录入成绩' }, 400);
+        if (!season.is_active) return json({ error: '赛季已暂存，恢复后才能录入成绩' }, 400);
 
         // 计算积分
         const scored = calculateScores(results);

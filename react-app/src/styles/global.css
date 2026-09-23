@@ -1099,6 +1099,56 @@ input{font-family:inherit;}
 .season-item .s-btn.gold{border-color:rgba(233,200,124,0.45);color:var(--gold);}
 .season-item .s-btn.gold:hover{background:rgba(233,200,124,0.16);color:var(--gold-bright);border-color:var(--gold);}
 
+/* 赛季三态。.active 沿用原来的金色调（进行中）；.paused 用中性亮边 ——
+   不能也用金色，那样和「进行中」分不出来。.ended 不加规则：
+   已结束的赛季以前就没有类名，保持原样，别顺手改掉用户满意的样子。 */
+.season-item.paused{border-color:var(--border-bright);}
+
+/* 次操作（暂存）。一行里最多两个胶囊，主操作是红的「结束」，所以这个要安静：
+   灰边、常规字重、不抢眼。奖池页那两个按钮上下叠着被点名过「比较丑」，
+   这里一律横排，且只有一个是视觉重点。 */
+.season-item .s-btn.quiet{
+  border-color:var(--border-bright);color:var(--paper-dim);font-weight:400;
+}
+.season-item .s-btn.quiet:hover{
+  background:var(--glass-2);color:var(--paper-bright);border-color:var(--border-bright);
+}
+
+/* 「当前赛季怎么办」选择框。
+   两个选项的后果差得远（暂存可逆、结束不可逆），所以不用单选框，
+   各给一张卡片带一行说明 —— 让房主在按下去之前就知道代价是什么。 */
+.resolve-hint{
+  font-size:13px;color:var(--paper-dim);line-height:1.75;margin-bottom:12px;
+}
+.resolve-hint b{color:var(--gold);font-weight:600;}
+.resolve-opt{
+  display:block;width:100%;text-align:left;
+  padding:13px 15px;margin-bottom:9px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--paper-ghost);color:inherit;
+  cursor:pointer;font:inherit;
+  transition:border-color .2s,background .2s,transform .2s;
+}
+.resolve-opt:last-child{margin-bottom:0;}
+.resolve-opt:hover{border-color:rgba(233,200,124,0.42);background:var(--glass-2);}
+.resolve-opt:active{transform:scale(0.99);}
+.resolve-opt .ro-name{
+  display:block;font-family:var(--font-serif);
+  font-size:14px;font-weight:600;color:var(--paper-bright);
+}
+.resolve-opt .ro-desc{
+  display:block;font-size:11.5px;color:var(--paper-mute);
+  margin-top:5px;line-height:1.6;
+}
+/* 「可恢复 / 不可逆」小标签：把两个选项最关键的区别前置到标题行 */
+.ro-tag{
+  display:inline-block;margin-left:8px;padding:1px 7px;
+  font-family:var(--font-label);font-size:10.5px;font-style:normal;font-weight:400;
+  letter-spacing:0.04em;border-radius:999px;vertical-align:1px;
+  border:1px solid rgba(87,192,138,0.42);color:var(--jade-bright);
+}
+.ro-tag.danger{border-color:rgba(226,75,54,0.42);color:var(--vermilion);}
+
 /* ============ 奖池 ============ */
 /* 余额这块既是「现在多少钱」，也是打开流水的入口：双击弹账单。
    不做成按钮是因为下面已经有「支取奖池」了，再摞一个按钮又丑又抢眼；
@@ -1524,6 +1574,12 @@ input{font-family:inherit;}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .fine-amount{font-family:var(--font-display);font-size:18px;color:var(--vermilion);flex-shrink:0;}
+/* 参与人数不足 3 人时凑不出末位三名，罚金为 0。要明说，
+   否则房主会以为结算漏跑了。 */
+.fine-empty{
+  font-size:12px;color:var(--paper-mute);
+  padding:10px 0 4px;text-align:center;line-height:1.6;
+}
 
 /* ============ Toast ============ */
 .toast{
