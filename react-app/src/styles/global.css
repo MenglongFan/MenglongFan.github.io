@@ -919,6 +919,10 @@ input{font-family:inherit;}
   background:var(--glass);
   transition:all .25s;
   animation:fadeIn .3s ease;
+  /* 拖拽排序的行：不让文字被划选，否则鼠标拖拽会变成选字；
+     iOS 上还要关掉长按弹出的选择菜单。 */
+  user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;
 }
 .sort-item.survivor{
   border-color:rgba(233,200,124,0.42);
@@ -927,10 +931,32 @@ input{font-family:inherit;}
 .sort-item.dragging{opacity:0.35;transform:scale(0.97);border-color:var(--gold);}
 .sort-handle{
   cursor:grab;color:var(--paper-mute);
-  flex-shrink:0;padding:0 2px;
+  flex-shrink:0;
+  /* 触屏起拖的唯一入口（触屏只有按在它上面才起拖，行内其它地方留给滚动）。
+     三件事要同时成立：
+     1) touch-action:none —— 否则手指按住把手上下移动会被浏览器判成滚动，
+        拖拽要用的 pointermove 一个都不来；
+     2) 视觉占位保持改造前的宽度（20px）—— 把宽度撑到 32px 会从右边的
+        名字身上抢走 12px，320px 宽的机器上名字会被挤成 0px，等于盲拖；
+     3) 真正能按中的范围交给 ::before 撑到 44×46（见下）——
+        于是「拇指按得准」和「不占布局」同时成立。 */
+  touch-action:none;
+  position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+  width:20px;height:34px;      /* 与右侧「存/亡」等高，行高与改造前一致 */
   transition:color .2s;
   font-size:16px;line-height:1;
-  user-select:none;
+  user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+/* 看不见，但它是把手的一部分 —— 命中它等于命中把手。
+   于是拇指可按范围 = 20+6+18 = 44px 宽、34+6+6 = 46px 高，
+   达到触控目标建议尺寸，而布局只占 20px。
+   z-index 让这段扩展区压在左侧的「名次」上，否则会被后出现的兄弟元素盖住、
+   只剩中间 12px 的间隙可用。 */
+.sort-handle::before{
+  content:'';position:absolute;
+  left:-6px;right:-18px;top:-6px;bottom:-6px;
 }
 .sort-handle:hover{color:var(--paper-bright);}
 .sort-handle:active{cursor:grabbing;}

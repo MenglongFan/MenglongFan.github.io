@@ -14,6 +14,12 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
     players.map((p) => ({ player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 }))
   )
   const [dragIndex, setDragIndex] = useState(null)
+  const listRef = useRef(null)
+  const dragRef = useRef(null)
+  const detachRef = useRef(null)
+
+  // 弹窗被关掉时把挂在 window 上的拖拽监听摘干净
+  useEffect(() => () => { if (detachRef.current) detachRef.current() }, [])
 
   const total = order.length
   const survivors = order.filter((r) => r.is_survivor).length
@@ -30,15 +36,115 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
     setOrder((prev) => prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r))
   }
 
-  const drop = (targetIndex) => {
-    if (dragIndex === null || dragIndex === targetIndex) return
-    setOrder((prev) => {
-      const next = [...prev]
-      const [moved] = next.splice(dragIndex, 1)
-      next.splice(targetIndex, 0, moved)
-      return next
-    })
-    setDragIndex(null)
+  // 拖拽排序。
+  //
+  // **不用 HTML5 原生拖拽**（`draggable` + onDragStart/onDragOver/onDrop）：
+  // 那套在触屏上根本不触发 dragstart —— 手指滑动被浏览器当成滚动，
+  // 所以手机上完全没法排序。改用 Pointer Events，鼠标 / 触摸 / 触控笔一条路径。
+  //
+  // 触屏只允许从左侧把手起拖（`.sort-handle` 上有 `touch-action:none`）：
+  // 若整行都能起拖，手指在行上滑动就会被当成拖拽，列表再也滚不动了。
+  // 鼠标保持原来的手感 —— 整行都能拖。
+  const startDrag = (e, i) => {
+    if (dragRef.current) return
+    const isMouse = e.pointerType === 'mouse' || e.pointerType === ''
+    if (isMouse) {
+      if (e.button !== 0) return                     // 只认左键
+      if (e.target.closest('.sort-toggle')) return   // 点在「存/亡」上是点击，不是拖拽
+    } else if (!e.target.closest('.sort-handle')) {
+      return
+    }
+
+    const list = listRef.current
+    if (!list) return
+
+    // 10 人赛季时列表比弹窗高（390×844 实测可滚 448px），
+    // 先找出「手指停在边缘时该滚谁」。
+    let scroller = null
+    for (let el = list.parentElement; el; el = el.parentElement) {
+      if (/(auto|scroll)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight) {
+        scroller = el
+        break
+      }
+    }
+
+    dragRef.current = { index: i, y: e.clientY }
+    setDragIndex(i)
+
+    // 每次移动都重新量中线。容器被自动滚动过之后，上一帧量到的位置就作废了。
+    // 最多 10 行，每帧一次 getBoundingClientRect，开销可以忽略。
+    const measure = () =>
+      [...list.querySelectorAll('.sort-item')].map((r) => {
+        const b = r.getBoundingClientRect()
+        return b.top + b.height / 2
+      })
+
+    // 落点 = 中线离手指最近的那一行
+    const applyTarget = () => {
+      const d = dragRef.current
+      if (!d) return
+      const mids = measure()
+      let target = 0
+      let best = Infinity
+      for (let k = 0; k < mids.length; k++) {
+        const dist = Math.abs(d.y - mids[k])
+        if (dist < best) { best = dist; target = k }
+      }
+      if (target === d.index) return
+      const from = d.index
+      d.index = target
+      setDragIndex(target)
+      setOrder((prev) => {
+        const next = [...prev]
+        const [moved] = next.splice(from, 1)
+        next.splice(target, 0, moved)
+        return next
+      })
+    }
+
+    // 手指停在容器上下边缘时自动滚动。没有这一步，10 人赛季里排在最后的
+    // 几行一开始就在屏幕外，一个手势永远拖不到第一位 —— 只能反复
+    // 「拖一下、松手、滚一屏」，那和不能拖也没差多少。
+    const EDGE = 56
+    let raf = 0
+    const tick = () => {
+      const d = dragRef.current
+      if (!d || !scroller) return
+      const b = scroller.getBoundingClientRect()
+      let dy = 0
+      if (d.y < b.top + EDGE) dy = -Math.ceil((b.top + EDGE - d.y) / 4)
+      else if (d.y > b.bottom - EDGE) dy = Math.ceil((d.y - (b.bottom - EDGE)) / 4)
+      if (dy) {
+        const before = scroller.scrollTop
+        scroller.scrollTop = before + dy
+        // 真的滚动了才重算落点；已经滚到顶/底就什么都不做，避免抖动
+        if (scroller.scrollTop !== before) applyTarget()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+
+    const onMove = (ev) => {
+      const d = dragRef.current
+      if (!d) return
+      d.y = ev.clientY
+      applyTarget()
+    }
+
+    const onUp = () => { if (detachRef.current) detachRef.current() }
+
+    detachRef.current = () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      detachRef.current = null
+      dragRef.current = null
+      setDragIndex(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    raf = requestAnimationFrame(tick)
   }
 
   const handleSubmit = async () => {
@@ -65,18 +171,14 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   return (
     <>
       <div className="sort-hint">
-        拖拽排列淘汰顺序（<b>上方 = 最后存活</b>，下方 = 先出局）。点击右侧按钮标记存活者。
+        拖住左侧 <b>⠿</b> 上下拖动，排列淘汰顺序（<b>上方 = 最后存活</b>，下方 = 先出局）。点击右侧按钮标记存活者。
       </div>
-      <div className="sort-list">
+      <div className="sort-list" ref={listRef}>
         {order.map((r, i) => (
           <div
             key={r.player_id}
             className={`sort-item ${r.is_survivor ? 'survivor' : ''} ${dragIndex === i ? 'dragging' : ''}`}
-            draggable
-            onDragStart={() => setDragIndex(i)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => drop(i)}
-            onDragEnd={() => setDragIndex(null)}
+            onPointerDown={(e) => startDrag(e, i)}
           >
             <span className="sort-handle">⠿</span>
             <span className="sort-rank">{i + 1}</span>
