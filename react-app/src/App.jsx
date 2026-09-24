@@ -2,6 +2,7 @@ import { Routes, Route, useLocation, Link } from 'react-router-dom'
 import { AuthProvider } from './lib/auth'
 
 import Backdrop from './components/Backdrop'
+import PageTransition from './components/PageTransition'
 import ClickSpark from './bits/ClickSpark/ClickSpark'
 
 import StandingsPage from './pages/StandingsPage'
@@ -98,7 +99,7 @@ function AppLayout() {
       >
         <div className="app">
           {/* 页头由各页自带 —— 五个 tab 的标题/副标题都不一样 */}
-          <div className="page-content">
+          <PageTransition>
             <Routes>
               <Route path="/" element={<StandingsPage />} />
               <Route path="/match" element={<MatchPage />} />
@@ -106,7 +107,7 @@ function AppLayout() {
               <Route path="/prize" element={<PrizePage />} />
               <Route path="/roster" element={<RosterPage />} />
             </Routes>
-          </div>
+          </PageTransition>
 
           <div className="footer">比赛第一 · 友谊长存</div>
         </div>
