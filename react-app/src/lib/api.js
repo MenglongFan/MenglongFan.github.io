@@ -85,5 +85,9 @@ export const API_ENDPOINTS = {
   PRIZE_SUMMARY: '/api/prize-pool/summary',
   PRIZE_TRANSACTIONS: '/api/prize-pool/transactions',
   PRIZE_WITHDRAW: '/api/prize-pool/withdraw',
+  // 慈善捐赠：录入（POST）、逐笔列表（GET，?limit=）、删除单笔（DELETE + /:id）
+  PRIZE_DONATIONS: '/api/prize-pool/donations',
+  PRIZE_DONATE: '/api/prize-pool/donate',
+  PRIZE_DONATION: '/api/prize-pool/donation',
   AUTH: '/api/auth',
 };

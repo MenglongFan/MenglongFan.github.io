@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS prize_pool_transactions (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   season_id   INTEGER REFERENCES seasons(id),
   player_id   INTEGER REFERENCES players(id),
-  type        TEXT NOT NULL,                   -- 'fine' 罚金入账 | 'withdrawal' 支取出账
-  amount      REAL NOT NULL,                   -- 正数=入账，负数=支取
+  type        TEXT NOT NULL,                   -- 'fine' 罚金入账 | 'donation' 慈善捐赠 | 'withdrawal' 支取出账
+  amount      REAL NOT NULL,                   -- 正数=入账（罚金、捐赠），负数=支取
   description TEXT,                            -- 用途说明
   balance     REAL NOT NULL,                   -- 操作后奖池余额
   created_at  TEXT DEFAULT (datetime('now'))

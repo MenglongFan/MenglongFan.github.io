@@ -1288,8 +1288,26 @@ input{font-family:inherit;}
   transition:color .2s ease,opacity .2s ease;
 }
 .prize-total:hover .prize-hint{color:var(--gold);opacity:1;}
+/* 余额的拆分行：罚金 + 捐赠混在同一个池子里，只给总额的话看不出「捐了多少」。
+   用金深度色而不是正文色 —— 它是余额的注解，不是第二个数字。 */
+.prize-split{
+  margin-top:9px;
+  font-family:var(--font-label);
+  font-size:11.5px;color:var(--gold-deep);
+  letter-spacing:0.1em;
+  opacity:0.95;
+}
 
 .prize-section{margin-top:20px;}
+/* 贡献榜 / 慈善捐赠：宽屏并排、窄屏上下。
+   为什么必须并排：慈善捐赠这一块竖着摞上去，1440×900 下会把页面顶出视口 155px，
+   而奖池页的既有约束是「不出现滚动条」。并排后高度取两者较高的那条，
+   正好省下一整块榜。断点取 900：低于它每栏不足 430px，人名会被称谓胶囊挤没。 */
+.prize-boards{margin-top:20px;}
+@media (min-width:900px){
+  .prize-boards{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start;}
+  .prize-boards .prize-section{margin-top:0;}
+}
 .prize-section-title{
   font-family:var(--font-label);
   font-size:12px;color:var(--paper-mute);
@@ -1330,6 +1348,54 @@ input{font-family:inherit;}
 }
 .contrib-amount{font-family:var(--font-display);font-size:18px;color:var(--gold);flex-shrink:0;}
 
+/* ---------- 慈善捐赠 ----------
+   与贡献榜共用 .contribution-item 的行骨架（头像 + 名字 + 金额），只多一枚称谓胶囊。
+   称谓是**累计捐赠额的纯派生量**，不是独立数据 —— 后端算好塞在 donors[].title 里，
+   前端只管画，不在本地重复一遍金额阈值。 */
+.donor-title{
+  flex-shrink:0;white-space:nowrap;
+  font-family:var(--font-label);
+  font-size:11px;letter-spacing:0.1em;
+  padding:2px 8px;border-radius:999px;
+  color:var(--gold-bright);
+  background:rgba(233,200,124,0.10);
+  border:1px solid rgba(233,200,124,0.32);
+}
+/* 捐赠区自己的两个动作，不做通栏：整页的通栏主行动是底下的「支取奖池」，
+   再摞一条通栏就分不出主次了。 */
+.donate-actions{display:flex;gap:10px;margin-top:14px;}
+.donate-actions .btn{flex:1;min-width:0;}
+
+/* 捐赠记录弹窗里的一条 = 一笔捐赠 */
+.donation-list{display:flex;flex-direction:column;gap:8px;}
+.donation-item{
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--glass);
+}
+.donation-line1{display:flex;align-items:center;gap:10px;}
+.donation-amount{
+  margin-left:auto;flex-shrink:0;
+  font-family:var(--font-display);font-size:17px;color:var(--gold);
+}
+.donation-meta{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:7px;padding-left:38px;   /* 和头像右缘对齐，读起来是一栏 */
+  font-size:12px;color:var(--paper-mute);
+}
+.donation-meta > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.donation-del{
+  flex-shrink:0;
+  background:none;border:none;padding:2px 0;cursor:pointer;
+  font-family:var(--font-label);font-size:12px;letter-spacing:0.08em;
+  color:var(--paper-mute);
+  border-bottom:1px solid transparent;
+  transition:color .2s,border-color .2s;
+}
+.donation-del:hover{color:var(--vermilion);border-bottom-color:rgba(226,75,54,0.5);}
+.donation-del:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:2px;}
+
 /* 流水不再在页面上铺开（只增不减，会把「支取奖池」推得很远），
    整份流水走双击余额弹出来的那张账单。这里只留账单自己还要用的类型徽标。 */
 .tx-type{
@@ -1341,6 +1407,9 @@ input{font-family:inherit;}
 }
 .tx-type.fine{background:rgba(226,75,54,0.14);color:var(--vermilion);border:1px solid rgba(226,75,54,0.28);}
 .tx-type.withdrawal{background:rgba(47,122,90,0.16);color:var(--jade-bright);border:1px solid rgba(47,122,90,0.34);}
+/* 捐赠是入账，但和罚金不是一回事 —— 罚金是红的（输了），捐赠是金的（自愿掏的）。
+   两个都是入账却同色，账单上就分不出「交钱」和「掏钱」了。 */
+.tx-type.donation{background:rgba(233,200,124,0.13);color:var(--gold-bright);border:1px solid rgba(233,200,124,0.32);}
 
 /* ---------- 账单（奖池流水）----------
    从屏幕顶边整块落下的流水面板。为什么不是从下往上弹：账单是「挂下来」的东西，

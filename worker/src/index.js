@@ -105,6 +105,46 @@ async function getCurrentBalance(db) {
   return row ? row.balance : 0;
 }
 
+// ---------- 慈善捐赠 ----------
+//
+// 捐赠与罚金**进同一个池子**、不分别锁定（见 docs/adr/0010）：支取取的是池子总额，
+// 不区分这笔钱原本来自罚金还是捐赠。两者只在账目上按 type 区分。
+// 因此「单独记录捐献列表」是用 `WHERE type='donation'` 过滤出来的，不是另一张表。
+//
+// 称谓按**终身累计**捐赠额授予，且是**纯派生量** —— 不存字段。
+// 存字段等于引入第二个真相来源，必然出现「列表显示累计 3 元、称谓却写着义薄云天」
+// 这种对不上的状态。派生量天然自洽，包括删掉记录导致掉档时自动回退。
+//
+// 门槛从 5 元起（低于一次末位罚金 15 元），保证「捐了就有名分」。
+// 只展示最高档一个：一行名字旁边挂四个称谓会挤爆 390px，而且称谓的语义是
+// 「你现在是什么人」，不是「你拿过哪些奖」。
+const DONATION_TITLES = [
+  { min: 100, title: '义薄云天' },
+  { min: 50, title: '乐善好施' },
+  { min: 20, title: '仗义疏财' },
+  { min: 5, title: '解囊相助' },
+];
+
+function donationTitle(total) {
+  for (const tier of DONATION_TITLES) {
+    if (total >= tier.min) return tier.title;
+  }
+  return '';
+}
+
+// 金额是不是「最多两位小数」。
+//
+// 判据必须带容差。写成 `Math.round(a * 100) !== a * 100` 看着天经地义，其实是在拿
+// 浮点数做**精确相等**：0.29 * 100 === 28.999999999999996，于是 0.29 元被当成
+// 「超过两位小数」拒掉。实测 0.01~100.00 这一万个合法两位小数里有 1146 个（11.5%）
+// 会被误拒，19.99、1.10、2.20 全都在里面 —— 也就是说这个功能对一成的正常金额直接不可用。
+//
+// 容差取 1e-6：两位小数乘 100 之后的误差量级在 1e-13，三位小数的差至少是 0.1，
+// 中间隔着十二个数量级，取哪个都行，不会把非法值放进来。
+function hasAtMostTwoDecimals(amount) {
+  return Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-6;
+}
+
 // ---------- 赛季状态机 ----------
 // active 进行中 / paused 已暂存 / ended 已结束
 //
@@ -541,11 +581,144 @@ export default {
            LIMIT 20`
         ).all();
 
+        // 慈善捐赠：按玩家终身累计 + 派生称谓。
+        // 与上面的贡献榜**分开**两张榜 —— 罚金是「输了交钱」、捐赠是「自愿掏钱」，
+        // 语义相反，并列成同一个名次序列等于把「被罚最多」和「最慷慨」当成同一件事。
+        // 这里只算「谁捐了多少」，逐笔的捐赠记录走 /api/prize-pool/donations。
+        const { results: donorRows } = await env.DB.prepare(
+          `SELECT p.id, p.name, p.avatar_url,
+             ROUND(COALESCE(SUM(ppt.amount), 0), 2) as total_amount,
+             COUNT(*) as donation_count
+           FROM prize_pool_transactions ppt
+           JOIN players p ON ppt.player_id = p.id
+           WHERE ppt.type = 'donation'
+           GROUP BY p.id
+           ORDER BY total_amount DESC`
+        ).all();
+        const donors = donorRows.map((d) => ({ ...d, title: donationTitle(d.total_amount) }));
+
+        // 累计捐赠额必须**从流水算**，不能拿上面那张榜求和。
+        // 榜单是 JOIN players 出来的，而 `DELETE FROM players` 没有级联：玩家被删之后，
+        // 他捐的钱仍然躺在奖池余额里，人却从榜上消失了。拿榜求和，于是「其中慈善捐赠 N 元」
+        // 会比余额少算一笔，两个数对不上，而且不报错 —— 正是 story 53 要防的「静默丢账」。
+        // 流水表才是这笔钱的真相来源，榜只是它的一个视图。
+        const donationTotalRow = await env.DB.prepare(
+          `SELECT COALESCE(SUM(amount), 0) as total
+           FROM prize_pool_transactions WHERE type = 'donation'`
+        ).first();
+        // 收口到分：捐赠允许两位小数，直接相加会飘（罚金那边已经踩过一次）
+        const donationTotal = Math.round((donationTotalRow?.total || 0) * 100) / 100;
+
         return json({
           current_balance: currentBalance,
           contributions,
           recent_transactions: recentTransactions,
+          donation_total: donationTotal,
+          donors,
         });
+      }
+
+      // GET /api/prize-pool/donations — 慈善捐赠的逐笔列表（「单独记录捐献列表」）
+      if (path === '/api/prize-pool/donations' && method === 'GET') {
+        const limit = Math.min(parseInt(url.searchParams.get('limit')) || 100, 200);
+        const offset = parseInt(url.searchParams.get('offset')) || 0;
+
+        const { results } = await env.DB.prepare(
+          `SELECT ppt.id, ppt.player_id, ppt.amount, ppt.description, ppt.balance, ppt.created_at,
+                  p.name as player_name, p.avatar_url
+           FROM prize_pool_transactions ppt
+           LEFT JOIN players p ON ppt.player_id = p.id
+           WHERE ppt.type = 'donation'
+           ORDER BY ppt.created_at DESC, ppt.id DESC
+           LIMIT ? OFFSET ?`
+        ).bind(limit, offset).all();
+
+        const countRow = await env.DB.prepare(
+          `SELECT COUNT(*) as total FROM prize_pool_transactions WHERE type = 'donation'`
+        ).first();
+
+        return json({ donations: results, total: countRow.total });
+      }
+
+      // POST /api/prize-pool/donate — 录入一笔慈善捐赠
+      if (path === '/api/prize-pool/donate' && method === 'POST') {
+        if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
+        const body = await request.json();
+        const playerId = parseInt(body.player_id);
+        const amount = parseFloat(body.amount);
+        const description = (body.description || '').trim();
+
+        if (!playerId) return json({ error: '请选择捐赠人' }, 400);
+        if (!amount || amount <= 0) return json({ error: '捐赠金额必须大于 0' }, 400);
+        // 只收两位小数：金额会被累加进余额链，三位以上小数会让链上的每个数字都变脏。
+        // 判据为什么不能直接比较浮点，见 hasAtMostTwoDecimals 上面的注释。
+        if (!hasAtMostTwoDecimals(amount)) {
+          return json({ error: '捐赠金额最多两位小数' }, 400);
+        }
+
+        const player = await env.DB.prepare(`SELECT id FROM players WHERE id = ?`)
+          .bind(playerId).first();
+        if (!player) return json({ error: '捐赠人不存在' }, 400);
+
+        // season_id 留空：捐赠是终身累计的，不对局、不属于任何赛季（见 docs/adr/0010）
+        const currentBalance = await getCurrentBalance(env.DB);
+        const newBalance = Math.round((currentBalance + amount) * 100) / 100;
+        const result = await env.DB.prepare(
+          `INSERT INTO prize_pool_transactions (player_id, type, amount, description, balance)
+           VALUES (?, 'donation', ?, ?, ?)`
+        ).bind(playerId, amount, description || '慈善捐赠', newBalance).run();
+
+        // 捐完把新的累计额与称谓一起返回，前端不用再请求一次
+        const totalRow = await env.DB.prepare(
+          `SELECT ROUND(COALESCE(SUM(amount), 0), 2) as total
+           FROM prize_pool_transactions WHERE type = 'donation' AND player_id = ?`
+        ).bind(playerId).first();
+
+        return json({
+          success: true,
+          new_balance: newBalance,
+          transaction_id: result.meta.last_row_id,
+          player_total: totalRow.total,
+          title: donationTitle(totalRow.total),
+        });
+      }
+
+      // DELETE /api/prize-pool/donation/:id — 删除一笔捐赠（录错了重录）
+      const donateDeleteMatch = path.match(/^\/api\/prize-pool\/donation\/(\d+)$/);
+      if (donateDeleteMatch && method === 'DELETE') {
+        if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
+        const id = parseInt(donateDeleteMatch[1]);
+
+        const row = await env.DB.prepare(
+          `SELECT id, type FROM prize_pool_transactions WHERE id = ?`
+        ).bind(id).first();
+        if (!row) return json({ error: '记录不存在' }, 404);
+        // 这个端点只删捐赠。罚金是赛季结算的产物、支取是账务动作，都不该从这里被删掉。
+        if (row.type !== 'donation') return json({ error: '只能删除慈善捐赠记录' }, 400);
+
+        // 余额链是「取 id 最大那一行的 balance」读出来的（见 getCurrentBalance）。
+        // 中间抽掉一条、后面不重写，之后所有展示都会错，而且**不会自愈** ——
+        // 必须从被删那条的前一条余额起，按 id 升序把后面每一行的 balance 重新续一遍。
+        const prev = await env.DB.prepare(
+          `SELECT balance FROM prize_pool_transactions WHERE id < ? ORDER BY id DESC LIMIT 1`
+        ).bind(id).first();
+        let running = prev ? prev.balance : 0;
+
+        const { results: after } = await env.DB.prepare(
+          `SELECT id, amount FROM prize_pool_transactions WHERE id > ? ORDER BY id ASC`
+        ).bind(id).all();
+
+        const statements = [env.DB.prepare(`DELETE FROM prize_pool_transactions WHERE id = ?`).bind(id)];
+        for (const r of after) {
+          running = Math.round((running + r.amount) * 100) / 100;
+          statements.push(
+            env.DB.prepare(`UPDATE prize_pool_transactions SET balance = ? WHERE id = ?`)
+              .bind(running, r.id)
+          );
+        }
+        await env.DB.batch(statements);
+
+        return json({ success: true, new_balance: running, rewritten: after.length });
       }
 
       // GET /api/prize-pool/transactions — 奖池流水列表

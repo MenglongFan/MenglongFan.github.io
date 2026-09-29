@@ -1,28 +1,18 @@
 #!/usr/bin/env node
 // 末位罚金算法测试：node worker/test/fines.test.mjs
 //
-// 为什么要把函数从 src/index.js 里「切出来」跑，而不是 import 或重写一份：
-//   - 它不是 export 的，import 拿不到；
-//   - 在测试里重写一遍算法，测的就是测试里那份，实现改了测试也不会红 —— 等于没测。
-// 切源码能保证跑的就是线上那份代码。代价是 src/index.js 的结构不能乱动：
-// 下面两个锚点（TIER_AMOUNTS_CENTS / 「获取当前奖池余额」）一旦消失就会直接报错退出，
-// 而不是静默跳过。
+// 用 splice.mjs 把 calculateBottomThreeFines 从源码里切出来跑（为什么是「切」而不是
+// import 或重写一份，见那个文件）。两个锚点：TIER_AMOUNTS_CENTS 与「获取当前奖池余额」，
+// 它们一旦消失或顺序颠倒就会直接报错退出，而不是静默跳过。
 
-import { readFileSync } from 'node:fs'
+import { spliceFunction } from './splice.mjs'
 
-const src = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8')
-
-const START = 'const TIER_AMOUNTS_CENTS'
-const END = '// 获取当前奖池余额'
-const start = src.indexOf(START)
-const end = src.indexOf(END)
-if (start < 0 || end < 0 || end <= start) {
-  console.error('切不出 calculateBottomThreeFines —— src/index.js 的锚点变了，请同步更新本测试')
-  process.exit(1)
-}
-const calculateBottomThreeFines = new Function(
-  `${src.slice(start, end)}; return calculateBottomThreeFines`,
-)()
+const calculateBottomThreeFines = spliceFunction({
+  from: 'const TIER_AMOUNTS_CENTS',
+  to: '// 获取当前奖池余额',
+  fn: 'calculateBottomThreeFines',
+  label: 'src/index.js',
+})
 
 // ---- 旧实现，仅作回归对照 ----
 // 旧版硬取 `standings.slice(-3)`，并列组一旦跨过末三位这条线就会漏人。
