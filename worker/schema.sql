@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS seasons (
   started_at        TEXT DEFAULT (datetime('now')),
   ended_at          TEXT,
   is_active         INTEGER DEFAULT 1,
-  prize_calculated  INTEGER DEFAULT 0
+  prize_calculated  INTEGER DEFAULT 0,
+  -- 三态 active/paused/ended 的**唯一真相**。is_active 只是它的冗余投影
+  -- （恒等于 status = 'active'）。状态变更一律走 setSeasonStatus()，两列一起改。
+  status            TEXT NOT NULL DEFAULT 'active'
 );
 
 CREATE TABLE IF NOT EXISTS matches (
@@ -27,9 +30,18 @@ CREATE TABLE IF NOT EXISTS match_results (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   match_id    INTEGER NOT NULL REFERENCES matches(id),
   player_id   INTEGER NOT NULL REFERENCES players(id),
-  rank        INTEGER NOT NULL,
+  rank        INTEGER NOT NULL,                -- 录入时的拖拽顺序，**不是名次**；展示名次由接口推导
   is_survivor INTEGER DEFAULT 0,
   score       INTEGER NOT NULL
+);
+
+-- 赛季 ↔ 玩家的报名关系。Worker 在 standings 与赛季详情里读写，
+-- 但删除玩家时要先清掉这里的引用行（D1 开着外键强制、没有级联）。
+CREATE TABLE IF NOT EXISTS season_players (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  season_id  INTEGER NOT NULL REFERENCES seasons(id),
+  player_id  INTEGER NOT NULL REFERENCES players(id),
+  UNIQUE(season_id, player_id)
 );
 
 CREATE TABLE IF NOT EXISTS prize_pool_transactions (
@@ -49,6 +61,9 @@ CREATE INDEX IF NOT EXISTS idx_matches_season ON matches(season_id);
 CREATE INDEX IF NOT EXISTS idx_ppt_season ON prize_pool_transactions(season_id);
 CREATE INDEX IF NOT EXISTS idx_ppt_player ON prize_pool_transactions(player_id);
 CREATE INDEX IF NOT EXISTS idx_ppt_created ON prize_pool_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_seasons_status ON seasons(status);
+CREATE INDEX IF NOT EXISTS idx_sp_season ON season_players(season_id);
+CREATE INDEX IF NOT EXISTS idx_sp_player ON season_players(player_id);
 
 -- 默认花名册（7 名玩家 + NFT 头像）
 INSERT OR IGNORE INTO players (id, name, avatar_url) VALUES
