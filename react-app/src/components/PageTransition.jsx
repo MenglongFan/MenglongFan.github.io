@@ -27,9 +27,11 @@ gsap.registerPlugin(useGSAP)
  * 3. **每个元素只入场一次**（下面的 WeakSet）。页面「加载中 → 有数据」时顶层块会换，
  *    但页头是同一个 DOM 节点。不记的话页头会先淡入一次、数据到位后又弹回 0 重来一遍。
  *
- * 4. **只动 transform 与 opacity，不动 width/height/top/margin。** transform 不参与布局，
+ * 4. **只动 transform / opacity / filter，不动 width/height/top/margin。** 这三个都不参与布局，
  *    实测动画期间 document.scrollHeight 与视口宽度全程不变 —— 这是「永远不要出现滚动条」
- *    那条要求的直接约束。
+ *    那条要求的直接约束。filter 与 transform 同属「会给 fixed 后代换包含块」的属性，
+ *    但本文件的目标里没有 fixed 元素（账单已排除、弹窗与 Toast 都在 .page-content 之外），
+ *    且收尾 clearProps 会把它摘掉。
  *
  * 触发靠 MutationObserver 而不是路由：页面「加载中 → 有数据」时路由没变，但顶层块
  * 从 <div> 换成了 <section>。监听直接子节点（subtree:false）同时覆盖「切页」和
@@ -51,8 +53,8 @@ export default function PageTransition({ children }) {
       const timelines = []
 
       // 收尾把内联样式摘干净：GSAP 会在元素上留下 transform（哪怕是单位矩阵），
-      // 而 transform 会给 position:fixed 的后代换一个包含块。清掉就没有这个隐患。
-      const CLEAR = 'transform,translate,rotate,scale,opacity,visibility'
+      // 而 transform / filter 都会给 position:fixed 的后代换一个包含块。清掉就没有这个隐患。
+      const CLEAR = 'transform,translate,rotate,scale,opacity,visibility,filter'
 
       const play = () => {
         const head = root.querySelector('.page-head')
@@ -73,25 +75,32 @@ export default function PageTransition({ children }) {
         if (freshHead.length) {
           tl.fromTo(
             freshHead,
-            { autoAlpha: 0, y: 12 },
+            { autoAlpha: 0, y: 16 },
             {
-              autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.05,
+              autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.05,
               ease: 'power3.out', clearProps: CLEAR,
             }
           )
         }
 
-        // 内容块：错峰落下，和页头尾段重叠，整体控制在 0.8 秒内。
-        // 页头已经入场过时（数据到位那一次）就直接从 0 开始，不再往后压。
+        // 内容块：错峰落下 + 从略小「长」到原尺寸 + 焦点从虚到实。
+        // 位移给足（44px）—— 12px 那种幅度在手机上一眼看不出在动。
+        //
+        // 三件事必须写在**同一条** tween 里：clearProps 只清理「这条 tween 自己动过的属性」。
+        // 拆成两条并行 tween 时，filter 由另一条写、主 tween 的 clearProps 够不着它，
+        // 元素上会永久留下 inline 的 `filter: blur(0px)`（实测 /season 与 /roster 都中招）。
+        // 一条 tween 还有一个好处：blur 用同一个 power3.out 曲线，前 55% 就走完约 85%，
+        // 观感仍是「先聚焦、再落位」，不需要单独的时间线。
         if (freshBlocks.length) {
           tl.fromTo(
             freshBlocks,
-            { autoAlpha: 0, y: 24 },
+            { autoAlpha: 0, y: 44, scale: 0.972, filter: 'blur(9px)' },
             {
-              autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.07,
+              autoAlpha: 1, y: 0, scale: 1, filter: 'blur(0px)',
+              duration: 0.56, stagger: 0.07,
               ease: 'power3.out', clearProps: CLEAR,
             },
-            freshHead.length ? '-=0.3' : 0
+            freshHead.length ? '-=0.26' : 0
           )
         }
       }

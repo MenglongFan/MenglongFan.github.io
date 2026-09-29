@@ -48,15 +48,22 @@
 
   --border:rgba(255,255,255,0.09);
   --border-bright:rgba(255,255,255,0.18);
+  /* 榜内行与行之间的分隔线：比 --border 更淡，只负责「连起来」不负责「框起来」 */
+  --hairline:rgba(255,255,255,0.065);
 
   --radius:18px;
   --radius-lg:26px;
   --radius-sm:12px;
 
-  --shadow-sm:0 2px 14px rgba(0,0,0,0.45);
-  --shadow:0 8px 30px -8px rgba(0,0,0,0.65);
-  --shadow-lg:0 24px 70px -18px rgba(0,0,0,0.82);
+  /* 阴影带底色相（--void 是 #07070B，偏蓝紫），不用纯黑。
+     纯黑投在带蓝紫的底上会发灰、发脏；跟着底色走的阴影才像「同一间屋子里的光」。 */
+  --shade:4,4,12;
+  --shadow-sm:0 2px 14px rgba(var(--shade),0.45);
+  --shadow:0 8px 30px -8px rgba(var(--shade),0.65);
+  --shadow-lg:0 24px 70px -18px rgba(var(--shade),0.82);
   --shadow-gold:0 12px 38px -12px rgba(233,200,124,0.55);
+  /* 暖色环境影：给「抬升」的那一张用，让高度带上鎏金的色温 */
+  --shadow-warm:0 18px 48px -20px rgba(233,200,124,0.20);
 
   /* 底部导航占位高度：浮动药丸 12px 下边距 + 7px 内边距 + 50px 内容 + 余量 */
   --bottom-nav-h:78px;
@@ -77,9 +84,14 @@ html,body{
   font-family:var(--font-serif);
   -webkit-font-smoothing:antialiased;
   min-height:100vh;
+  min-height:100dvh;   /* iOS 地址栏收放时 100vh 会跳，dvh 不会 */
   overflow-x:hidden;
   font-synthesis-weight:none;
   overscroll-behavior-y:none;
+  /* 全局等宽数字（tabular）。这是个记分系统：榜上有 5 个分数、还有「4 局 / 存活 2 次」，
+     比例数字每个字宽度不同，纵向对不齐；CountUp 跳数时整行还会左右抖。
+     对中文没有影响（CJK 本来就是全宽），所以放全局比逐个类名点更稳。 */
+  font-variant-numeric:tabular-nums;
 }
 body{position:relative;}
 ::selection{background:var(--cinnabar);color:var(--paper-bright);}
@@ -147,6 +159,7 @@ input{font-family:inherit;}
   position:relative;z-index:3;
   max-width:560px;margin:0 auto;padding:0 20px;
   min-height:100vh;
+  min-height:100dvh;   /* 同上：iOS 地址栏收放时不跳 */
 }
 .page-content{padding-bottom:8px;}
 
@@ -188,6 +201,8 @@ input{font-family:inherit;}
   font-size:44px;line-height:1.08;letter-spacing:0.02em;
   margin-bottom:12px;
   font-weight:400;
+  /* 标题换行时不让最后一个词/字单独掉到下一行（中文标题短，一旦掉字很显眼） */
+  text-wrap:balance;
 }
 
 /* ---- 流光渐变文字 ----
@@ -248,8 +263,10 @@ input{font-family:inherit;}
   border-radius:var(--radius-lg);
   --edge-proximity:100;
   --cursor-angle:45deg;
-  /* 默认那 6 层黑色投影太重，换成一层干净的环境影 */
-  box-shadow:0 22px 60px -22px rgba(0,0,0,0.85);
+  /* 默认那 6 层黑色投影太重，换成一层干净的环境影。
+     底色偏蓝紫，所以阴影用带色相的 --shade；再叠一层很淡的鎏金暖影 ——
+     榜里只剩这一张卡是抬升的，让它带点自己的色温，和下面那块平铺的板拉开。 */
+  box-shadow:0 22px 60px -22px rgba(var(--shade),0.85), var(--shadow-warm);
   animation:hero-sweep 12s linear infinite;
 }
 @keyframes hero-sweep{
@@ -311,7 +328,9 @@ input{font-family:inherit;}
 .hero-score{display:flex;align-items:baseline;gap:3px;flex-shrink:0;}
 .hero-num{
   font-family:var(--font-display);
-  font-size:48px;line-height:1;
+  font-size:54px;line-height:1;
+  /* 大字号要收紧字距，否则数字之间会漏风、看着散 */
+  letter-spacing:-0.03em;
   color:var(--gold);
   text-shadow:0 0 34px rgba(233,200,124,0.38);
 }
@@ -398,6 +417,44 @@ input{font-family:inherit;}
   background:var(--glass-2);
 }
 
+/* ---- 榜单：一块连贯的板，不是一叠各自漂浮的卡片 ----
+   改造前每行是一张独立玻璃卡、间距 9px、各带一层投影。5 行就是 5 个独立物件，
+   眼睛读到的是一列卡片，不是「一张榜」；而且每一行都抬升，等于没有一行抬升。
+
+   改成一块板之后：
+   · 行与行之间只剩一条发丝线，视线顺着线往下扫，名次才连成序列；
+   · 抬升只留给榜首那张卡（.hero 不在这个容器里），于是「高度」重新只表示「第一」；
+   · 5 层 backdrop-filter 收成 1 层，手机上是净赚的性能。
+
+   .standings 是**通用列表容器**（花名册/赛季/奖池/录入都在用），
+   所以只用 :has(> .rank-item) 命中真的装着排名行的那一块，别误伤别的页。 */
+.standings:has(> .rank-item){
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--glass);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  overflow:hidden;
+}
+.standings:has(> .rank-item) > .rank-item.card-spotlight{
+  margin-bottom:0;
+  border:none;
+  border-radius:0;
+  border-top:1px solid var(--hairline);
+  background:transparent;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+/* 每行顶部那道常驻高光在「一叠卡」里是玻璃质感，在「一块板」里会变成一条条横纹 */
+.standings:has(> .rank-item) > .rank-item.card-spotlight::after{display:none;}
+/* 板里没有逐行的边框了，选中态改用底色表达（金色，很淡） */
+.standings:has(> .rank-item) > .rank-item.card-spotlight:hover{
+  background:rgba(233,200,124,0.055);
+}
+.standings:has(> .rank-item) > .rank-item.is-open{
+  background:rgba(233,200,124,0.08);
+}
+
 /* 只读榜单用的静态玻璃块（「赛季 → 查看」） */
 .rank-item-static{
   display:block;
@@ -462,15 +519,17 @@ input{font-family:inherit;}
 .rank-meta .sep{opacity:0.5;}
 .rank-meta .survival{color:var(--gold-deep);}
 
-/* 相对积分条：一眼看出差距，比纯数字信息量高 */
+/* 相对积分条：一眼看出差距，比纯数字信息量高。
+   原来 40×4px 太窄太薄，缩略图上只是一道装饰性的短横；
+   加宽到 58×6 并给一条真正看得见的轨道，它才读得出「比例」而不只是「有东西」。 */
 .rank-bar{
-  width:40px;height:4px;flex-shrink:0;
-  border-radius:3px;overflow:hidden;
-  background:rgba(255,255,255,0.09);
-  box-shadow:inset 0 1px 0 rgba(0,0,0,0.35);
+  width:58px;height:6px;flex-shrink:0;
+  border-radius:99px;overflow:hidden;
+  background:rgba(255,255,255,0.07);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.05);
 }
 .rank-bar i{
-  display:block;height:100%;border-radius:3px;
+  display:block;height:100%;border-radius:99px;
   background:linear-gradient(90deg, rgba(233,200,124,0.35), var(--gold));
   box-shadow:0 0 10px rgba(233,200,124,0.55);
   transition:width .6s cubic-bezier(.22,1,.36,1);
@@ -478,9 +537,10 @@ input{font-family:inherit;}
 
 .rank-score{
   display:flex;align-items:baseline;justify-content:flex-end;gap:2px;
-  min-width:44px;flex-shrink:0;
+  min-width:46px;flex-shrink:0;
   font-family:var(--font-display);
-  font-size:22px;line-height:1;
+  font-size:25px;line-height:1;
+  letter-spacing:-0.02em;
   color:var(--paper-bright);
 }
 .rank-score .unit{
@@ -858,7 +918,7 @@ input{font-family:inherit;}
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;transition:all .25s;
   border-radius:8px;
-  background:rgba(0,0,0,0.25);
+  background:rgba(var(--shade),0.25);
 }
 .player-pick.selected .check{
   background:linear-gradient(135deg,#F2E0B0,#C9A44C);
@@ -998,7 +1058,7 @@ input{font-family:inherit;}
 
 .score-preview{
   margin-top:18px;padding:16px;
-  background:rgba(0,0,0,0.28);border-radius:var(--radius);
+  background:rgba(var(--shade),0.28);border-radius:var(--radius);
   border:1px solid var(--border);
 }
 .score-preview-title{
@@ -1303,7 +1363,7 @@ input{font-family:inherit;}
   border:1px solid var(--border-bright);
   border-top:none;
   border-radius:0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow:0 24px 60px rgba(0,0,0,0.55);
+  box-shadow:0 24px 60px rgba(var(--shade),0.55);
   transform-origin:top center;
   overflow:hidden;
 }
@@ -1657,7 +1717,7 @@ input{font-family:inherit;}
   backdrop-filter:blur(24px) saturate(1.6);
   -webkit-backdrop-filter:blur(24px) saturate(1.6);
   box-shadow:
-    0 -8px 44px rgba(0,0,0,0.55),
+    0 -8px 44px rgba(var(--shade),0.55),
     inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .bottom-nav-item{
