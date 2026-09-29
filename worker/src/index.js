@@ -464,10 +464,26 @@ export default {
         return json({ ok: true });
       }
 
-      // DELETE /api/player/:id — 删除（历史记录保留）
+      // DELETE /api/player/:id — 玩家不可删除，见 ADR 0011
       if (putMatch && method === 'DELETE') {
         if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
-        await env.DB.prepare(`DELETE FROM players WHERE id = ?`).bind(putMatch[1]).run();
+        const id = putMatch[1];
+        // 「删掉玩家、保留历史」在数据上做不到：match_results / prize_pool_transactions /
+        // season_players 三张表都外键引用 players，且没有 ON DELETE CASCADE。与其让 SQLite
+        // 抛原始的外键错误、被全局 catch 变成 500（前端把 SQLite 原文直接弹给用户），
+        // 不如在这里把三种引用一次数清、说人话。
+        // 注意 season_players 也要算：刚报名还没打过的人同样删不掉。
+        const refs = await env.DB.prepare(
+          `SELECT
+             (SELECT COUNT(*) FROM match_results           WHERE player_id = ?) +
+             (SELECT COUNT(*) FROM prize_pool_transactions WHERE player_id = ?) +
+             (SELECT COUNT(*) FROM season_players          WHERE player_id = ?) AS n`
+        ).bind(id, id, id).first();
+        if ((refs?.n || 0) > 0) {
+          return json({ error: '该玩家已有赛季或对局记录，不能删除' }, 409);
+        }
+        const result = await env.DB.prepare(`DELETE FROM players WHERE id = ?`).bind(id).run();
+        if (!result.meta.changes) return json({ error: '玩家不存在' }, 404);
         return json({ ok: true });
       }
 
