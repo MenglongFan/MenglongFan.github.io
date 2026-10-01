@@ -416,7 +416,7 @@ export default function PrizePage() {
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="奖池" meta="读取中" title="奖池" sub="正在同步奖池余额" />
+        <PageHead eyebrow="奖池" meta="读取中" title="奖池明细" sub="正在同步奖池余额" />
         <div className="standings-empty"><div className="big">加载中...</div></div>
       </>
     )
@@ -425,7 +425,7 @@ export default function PrizePage() {
   if (!data) {
     return (
       <>
-        <PageHead eyebrow="奖池" meta="读取失败" title="奖池" sub="稍后重试" muted />
+        <PageHead eyebrow="奖池" meta="读取失败" title="奖池明细" sub="稍后重试" muted />
         <div className="standings-empty">
           <div className="seal">赏</div>
           <div className="big">奖池</div>
@@ -445,7 +445,7 @@ export default function PrizePage() {
       <PageHead
         eyebrow="奖池"
         meta={`${contributions.length} 人 · ${recent_transactions.length} 笔`}
-        title="奖池"
+        title="奖池明细"
         sub="末尾三名罚金 + 自愿捐赠 · 跨赛季滚存"
       />
 
