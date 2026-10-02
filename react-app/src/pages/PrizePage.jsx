@@ -206,6 +206,8 @@ export default function PrizePage() {
   useEffect(() => { load() }, [])
 
   const openWithdraw = async () => {
+    // reauth：支取是唯一「钱离开池子」的动作，即使本会话已经鉴权过也要重新输一次密码。
+    // 其余动作（录入捐赠、删除捐赠…）仍共用会话，不被反复打断。
     ensureAuth('支取奖池', async () => {
       try {
         const summary = await api('/api/prize-pool/summary')
@@ -231,7 +233,7 @@ export default function PrizePage() {
       } catch (e) {
         showToast(e.message, 'error')
       }
-    })
+    }, { reauth: true })
   }
 
   // ---------- 慈善捐赠：录入 / 逐笔列表 / 删除 ----------
