@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
+import { useHeightGuard } from '../lib/useHeightGuard'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
 import Avatar from '../components/Avatar'
@@ -24,6 +25,12 @@ export default function RosterPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  // 花名册的高度护栏。ADR 0009 已记录：390×844 下这一页 docH=850、比视口多 6px
+  // （改造前就有，不是动画带来的）。1440×900 下更紧：7 人余量只剩 37px，
+  // **第 8 人起滚**（923px）—— 而这一页正是会不断加人的地方。
+  const listRef = useRef(null)
+  useHeightGuard(listRef, [players])
 
   const rename = (id) => {
     const name = (drafts[id] || '').trim()
@@ -85,24 +92,30 @@ export default function RosterPage() {
           <div className="prize-empty">花名册为空，添加玩家开始</div>
         )}
 
-        {players.map((p) => (
-          <div className="roster-item" key={p.id}>
-            <Avatar url={p.avatar_url} name={p.name} className="roster-avatar" />
-            <input
-              value={drafts[p.id] ?? p.name}
-              onChange={(e) => setDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              onBlur={() => rename(p.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
-              aria-label={`${p.name} 的名字`}
-            />
-            <span className="roster-index">#{p.id}</span>
-            <button className="roster-del" onClick={() => remove(p.id)} title="删除">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              </svg>
-            </button>
-          </div>
-        ))}
+        {/* 护栏只圈住**玩家行**，不圈底下那个「添加新玩家」的框 —— 输入框是动作、
+            不是列表内容，被滚出可视区就等于加不了人（实测 12 人时它会掉到可视区
+            下方 237px）。行距来自 .roster-item 自己的 margin-bottom，不是容器的
+            gap，所以多包这一层不改变排版。 */}
+        <div className="roster-list height-guard" ref={listRef}>
+          {players.map((p) => (
+            <div className="roster-item" key={p.id}>
+              <Avatar url={p.avatar_url} name={p.name} className="roster-avatar" />
+              <input
+                value={drafts[p.id] ?? p.name}
+                onChange={(e) => setDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                onBlur={() => rename(p.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                aria-label={`${p.name} 的名字`}
+              />
+              <span className="roster-index">#{p.id}</span>
+              <button className="roster-del" onClick={() => remove(p.id)} title="删除">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
 
         <div className="addbox">
           <label className="addbox-label">添加新玩家</label>

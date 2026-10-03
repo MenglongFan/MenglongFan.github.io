@@ -1317,27 +1317,40 @@ input{font-family:inherit;}
    就会开始滚。390×844 窄屏：docH 852，比并排时的 890 反而少了 38px。
    所以下面给榜单区加了「护栏」（max-height，见本节末）：内容再多也只在区内滚，
    页面本身不滚。3 行时护栏够不着、完全不生效，外观与没有它时一致。 */
-.prize-boards{
-  margin-top:14px;
-  display:flex;flex-direction:column;gap:12px;
-  /* 护栏：上限由 PrizePage 按视口算出（--boards-max），超出的部分在区内滚。
-     行数会随人数长（贡献榜按人、慈善捐赠按捐赠人），而这一页的硬约束是
-     「不出现滚动条」—— 3 行正好卡满，第 4 行就会把整页顶出滚动条。
-     JS 没跑（或量不到页脚）时 var 缺省为 none，等于没有这层，退回旧行为。 */
-  max-height:var(--boards-max,none);
+/* ---------- 高度护栏（通用） ----------
+   给「行数会随数据增长的区域」一个按视口算出来的上限，超出的部分在区内滚，
+   页面本身永远不出现滚动条（用户要求「永远不要出现滚动条」，见 ADR 0009）。
+   用它的三处：奖池页两块榜、积分榜、花名册 —— 逻辑在 lib/useHeightGuard.js。
+   这个类**只加在会增长的那一层**（.standings 本身就是通用列表容器，
+   积分榜/花名册/赛季/奖池/录入都在用，所以是按页 opt-in，不是全局改 .standings）。
+   JS 没跑（或量不到页脚）时 var 缺省为 none，等于没有这层，退回旧行为。 */
+.height-guard{
+  max-height:var(--guard-max,none);
   overflow-y:auto;
   overscroll-behavior:contain;   /* 区内滚到底不要把滚动传给页面 */
   scrollbar-width:none;
   -ms-overflow-style:none;
 }
-.prize-boards::-webkit-scrollbar{width:0;height:0;display:none;}
+.height-guard::-webkit-scrollbar{width:0;height:0;display:none;}
 /* 没有滚动条，就只剩「下面还有人」这一个提示：只有真的溢出、且没滚到底时才亮。
    用 mask 而不是 ::after —— ::after 挂在滚动容器上会跟着内容一起滚走，
    而 mask 作用在元素的**盒子**上，内容在盒子里滚、渐隐留在盒底。
    不溢出时完全不挂 mask，所以外观与没有这层护栏时逐像素相同。 */
-.prize-boards[data-overflow="1"][data-at-end="0"]{
+.height-guard[data-overflow="1"][data-at-end="0"]{
   -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
   mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
+}
+/* 积分榜例外：.standings:has(> .rank-item)（上面第 431 行）自带 overflow:hidden，
+   用来裁「一块板」的圆角。overflow 是 shorthand，会把 overflow-y 一并设成 hidden，
+   而那条选择器的 specificity 正好也是 (0,2,0)、与 .height-guard 同级 ——
+   **只写 .height-guard 是压不过它的**，护栏会静默失效：内容被裁掉、还滚不动，
+   比页面滚动更糟。这里把 specificity 提到 (0,3,0) 显式压过它，不依赖文件顺序。
+   花名册的 .standings 没有这条 overflow 规则，所以它用上面那条通用规则就够。 */
+.standings:has(> .rank-item).height-guard{overflow-y:auto;}
+
+.prize-boards{
+  margin-top:14px;
+  display:flex;flex-direction:column;gap:12px;
 }
 /* 支取奖池与上面的「捐赠记录」原本严丝合缝（实测间距 0px）—— 一个灰边次操作按钮
    紧贴着一个通栏金色主行动，看着像同一组按钮。给主行动留出自己的呼吸区。

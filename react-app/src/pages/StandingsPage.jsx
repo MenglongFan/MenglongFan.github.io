@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { api, seasonStatus, SEASON_STATUS_TEXT } from '../lib/api'
+import { useHeightGuard } from '../lib/useHeightGuard'
 import Avatar from '../components/Avatar'
 import PageHead from '../components/PageHead'
 import RankRow from '../components/RankRow'
@@ -67,6 +68,13 @@ export default function StandingsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // 完整榜单的高度护栏：行数随赛季人数增长，而这一页同样受「不出现滚动条」约束。
+  // 实测 1440×900：4 行时余量 113px，**第 6 行起滚**（915px，行高 63px）——
+  // 而花名册是 7 人，所以一个正常赛季就会把整页顶出滚动条（超约 79px）。
+  // 展开某一行也会变高，所以把 expandedId / details 一并作为重算依赖。
+  const listRef = useRef(null)
+  useHeightGuard(listRef, [standings, expandedId, details])
 
   const toggleDetail = async (playerId) => {
     if (expandedId === playerId) {
@@ -242,7 +250,7 @@ export default function StandingsPage() {
       </section>
 
       {/* ---------- 完整榜单 ---------- */}
-      <section className="standings">
+      <section className="standings height-guard" ref={listRef}>
         {rest.length > 0 && (
           <div className="list-hd">
             <h2>完整战绩</h2>
