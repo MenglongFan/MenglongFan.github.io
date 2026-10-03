@@ -244,8 +244,14 @@ export default function PrizePage() {
       if (!footer) return                       // 量不到就不设上限，退回「不裁剪」的旧行为
       const before = offTop(el)
       const after = offTop(footer) + footer.offsetHeight - (offTop(el) + el.offsetHeight)
-      const avail = Math.max(0, window.innerHeight - before - after)
-      el.style.setProperty('--boards-max', avail + 'px')
+      const avail = window.innerHeight - before - after
+      // 视口矮到「榜单之外的内容」自己就快占满时（笔记本 1366×768、或窗口压得很矮），
+      // avail 会趋近甚至变成负数。这时**绝不能**照算：把上限设成 0 会让整个榜单区
+      // 高度归零、直接看不见 —— 比页面滚动糟得多。护栏的职责是别让页面滚，
+      // 不是把用户要看的东西藏起来，所以这种情况退回「不裁剪」，让页面正常滚。
+      // 180 ≈ 榜单标题 + 3 行，低于这个数内滚也没法用了。
+      if (avail >= 180) el.style.setProperty('--boards-max', avail + 'px')
+      else el.style.removeProperty('--boards-max')
       syncFade()
     }
 
