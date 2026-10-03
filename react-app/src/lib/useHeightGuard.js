@@ -33,6 +33,10 @@ export function useHeightGuard(ref, deps = []) {
       const over = el.scrollHeight - el.clientHeight
       setAttr('overflow', over > 2 ? '1' : '0')
       setAttr('atEnd', over > 2 && el.scrollTop < over - 2 ? '0' : '1')
+      // 渐隐长度**跟着溢出量走**，不能固定 46px。实测：移动端奖池区只溢出 8px，
+      // 而 46px 的渐隐把「录入捐赠/捐赠记录」两个按钮整个罩进去、底部调到全透明，
+      // 看起来像渲染坏了。渐隐是「下面还有内容」的提示，藏了多少就只渐隐多少。
+      if (over > 2) el.style.setProperty('--fade-h', Math.min(46, over) + 'px')
     }
 
     // 沿 offsetParent 链累加，得到相对文档的纵向偏移（同一参照系，且不受 transform 影响）

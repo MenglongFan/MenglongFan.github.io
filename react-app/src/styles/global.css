@@ -1335,10 +1335,13 @@ input{font-family:inherit;}
 /* 没有滚动条，就只剩「下面还有人」这一个提示：只有真的溢出、且没滚到底时才亮。
    用 mask 而不是 ::after —— ::after 挂在滚动容器上会跟着内容一起滚走，
    而 mask 作用在元素的**盒子**上，内容在盒子里滚、渐隐留在盒底。
-   不溢出时完全不挂 mask，所以外观与没有这层护栏时逐像素相同。 */
+   不溢出时完全不挂 mask，所以外观与没有这层护栏时逐像素相同。
+   渐隐长度由 JS 写进 --fade-h（= min(46px, 溢出量)），46px 只是取不到时的兜底：
+   溢出多少就渐隐多少 —— 固定 46px 会把「只溢出 8px」时贴着底边的那一整行
+   （实测是奖池页的「录入捐赠/捐赠记录」按钮）罩进渐隐里，看着像坏了。 */
 .height-guard[data-overflow="1"][data-at-end="0"]{
-  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
-  mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
+  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade-h,46px)),transparent);
+  mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade-h,46px)),transparent);
 }
 /* 积分榜例外：.standings:has(> .rank-item)（上面第 431 行）自带 overflow:hidden，
    用来裁「一块板」的圆角。overflow 是 shorthand，会把 overflow-y 一并设成 hidden，
