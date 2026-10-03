@@ -482,64 +482,67 @@ export default function PrizePage() {
           <div className="prize-hint">双击查看流水</div>
         </div>
 
-        {/* 两块榜并排（宽屏）。为什么不是竖着摞：加了慈善捐赠之后，
-            1440×900 下页面被顶出视口 155px，而这一页的既有约束是「不出现滚动条」。
-            并排之后高度取两者较高的那条，正好省下一整块榜的高度。
-            窄屏不并排 —— 390 宽下每栏只剩 175px，人名会被称谓胶囊挤没。 */}
+        {/* 两块榜上下排（整宽）。曾经 ≥900px 并排两栏，是为了省高度 —— 慈善捐赠
+            摞上去会让页面多出 154px，而这一页的约束是「不出现滚动条」。
+            但并排把每栏压到 ~430px：捐赠那栏一出现称谓胶囊，金额就被顶到边缘、
+            和名字贴在一起，两块榜的条目数还一高一低，看着像没排过版。
+            现在上下排、各自独占整宽，行距更松；多出的高度靠收紧区块间距补回一部分。
+            窄屏行为不变（本来也是上下排）。 */}
         <div className="prize-boards">
-        <div className="prize-section">
-          <div className="prize-section-title">
-            <span>贡献榜</span>
-            <span className="count">{contributions.length} 人</span>
-          </div>
-          {contributions.length > 0 ? (
-            <div className="contribution-list">
-              {contributions.map((c, i) => (
-                <div className="contribution-item" key={c.id}>
-                  <span className="contrib-rank">{i + 1}</span>
-                  <Avatar url={c.avatar_url} name={c.name} className="contrib-avatar" />
-                  <span className="contrib-name">{c.name}</span>
-                  <span className="contrib-amount">{c.total_amount}元</span>
-                </div>
-              ))}
+          <div className="prize-section">
+            <div className="prize-section-title">
+              <span>贡献榜</span>
+              <span className="count">{contributions.length} 人</span>
             </div>
-          ) : <div className="prize-empty">暂无贡献记录</div>}
-        </div>
-
-        {/* 慈善捐赠：和贡献榜并列，但**是另一张榜**。
-            罚金是「输了交钱」、捐赠是「自愿掏钱」，语义相反 —— 排进同一个名次序列
-            等于把「被罚最多」和「最慷慨」当成同一件事。
-            用词跟 CONTEXT.md 的词条走（慈善捐赠 / 捐赠称谓）：叫「慈善奖金」会把这笔钱
-            说成一份奖金，而 ADR 0010 的全部理由正是「捐赠不是奖金、只是进同一个池子」。
-            称谓由后端按终身累计额派生（阈值只在 worker 里存一份），前端不重复一遍：
-            两份阈值迟早会改歪，而且改的那天一定只改一边。 */}
-        <div className="prize-section">
-          <div className="prize-section-title">
-            <span>慈善捐赠</span>
-            <span className="count">{donationTotal} 元 · {donors.length} 人</span>
+            {contributions.length > 0 ? (
+              <div className="contribution-list">
+                {contributions.map((c, i) => (
+                  <div className="contribution-item" key={c.id}>
+                    <span className="contrib-rank">{i + 1}</span>
+                    <Avatar url={c.avatar_url} name={c.name} className="contrib-avatar" />
+                    <span className="contrib-name">{c.name}</span>
+                    <span className="contrib-amount">{c.total_amount}元</span>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="prize-empty">暂无贡献记录</div>}
           </div>
-          {donors.length > 0 ? (
-            <div className="contribution-list">
-              {donors.map((d) => (
-                <div className="contribution-item" key={d.id}>
-                  <Avatar url={d.avatar_url} name={d.name} className="contrib-avatar" />
-                  <span className="contrib-name">{d.name}</span>
-                  {d.title && <span className="donor-title">{d.title}</span>}
-                  <span className="contrib-amount">{d.total_amount}元</span>
-                </div>
-              ))}
+
+          {/* 慈善捐赠：和贡献榜上下相邻，但**是另一张榜**。
+              罚金是「输了交钱」、捐赠是「自愿掏钱」，语义相反 —— 排进同一个名次序列
+              等于把「被罚最多」和「最慷慨」当成同一件事。
+              用词跟 CONTEXT.md 的词条走（慈善捐赠 / 捐赠称谓）：叫「慈善奖金」会把这笔钱
+              说成一份奖金，而 ADR 0010 的全部理由正是「捐赠不是奖金、只是进同一个池子」。
+              称谓由后端按终身累计额派生（阈值只在 worker 里存一份），前端不重复一遍：
+              两份阈值迟早会改歪，而且改的那天一定只改一边。 */}
+          <div className="prize-section">
+            <div className="prize-section-title">
+              <span>慈善捐赠</span>
+              <span className="count">{donationTotal} 元 · {donors.length} 人</span>
             </div>
-          ) : <div className="prize-empty">还没有人捐赠</div>}
+            {donors.length > 0 ? (
+              <div className="contribution-list">
+                {donors.map((d) => (
+                  <div className="contribution-item" key={d.id}>
+                    <Avatar url={d.avatar_url} name={d.name} className="contrib-avatar" />
+                    <span className="contrib-name">{d.name}</span>
+                    {d.title && <span className="donor-title">{d.title}</span>}
+                    <span className="contrib-amount">{d.total_amount}元</span>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="prize-empty">还没有人捐赠</div>}
 
-          {/* 主操作（录入）用实心、次操作（查记录）用灰边，一行只有一个视觉重点。
-              不做成通栏：整页的通栏主行动是底下的「支取奖池」，再摞一条就分不出主次了。 */}
-          <div className="donate-actions">
-            <button className="btn btn-primary" onClick={openDonate}>录入捐赠</button>
-            {donors.length > 0 && (
-              <button className="btn btn-ghost" onClick={openDonationList}>捐赠记录</button>
-            )}
+            {/* 主操作（录入）用实心、次操作（查记录）用灰边，一行只有一个视觉重点。
+                不做成通栏：整页的通栏主行动是底下的「支取奖池」，再摞一条就分不出主次了。
+                也不再 flex:1 —— 那是给 430px 窄栏写的，整宽下会把两个按钮拉到各占半屏。 */}
+            <div className="donate-actions">
+              <button className="btn btn-primary" onClick={openDonate}>录入捐赠</button>
+              {donors.length > 0 && (
+                <button className="btn btn-ghost" onClick={openDonationList}>捐赠记录</button>
+              )}
+            </div>
           </div>
-        </div>
         </div>
 
         {current_balance > 0 && (

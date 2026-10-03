@@ -1245,7 +1245,7 @@ input{font-family:inherit;}
    - cursor:pointer + 下面那行小字 —— 双击本身不可见，总得给点提示。 */
 .prize-total{
   text-align:center;
-  padding:22px 0 20px;
+  padding:20px 0 18px;
   position:relative;
   cursor:pointer;
   border-radius:var(--radius);
@@ -1298,27 +1298,38 @@ input{font-family:inherit;}
   opacity:0.95;
 }
 
-.prize-section{margin-top:20px;}
-/* 贡献榜 / 慈善捐赠：宽屏并排、窄屏上下。
-   为什么必须并排：慈善捐赠这一块竖着摞上去，1440×900 下会把页面顶出视口 155px，
-   而奖池页的既有约束是「不出现滚动条」。并排后高度取两者较高的那条，
-   正好省下一整块榜。断点取 900：低于它每栏不足 430px，人名会被称谓胶囊挤没。 */
-.prize-boards{margin-top:20px;}
-@media (min-width:900px){
-  .prize-boards{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start;}
-  .prize-boards .prize-section{margin-top:0;}
+.prize-section{margin-top:0;}
+/* 贡献榜 / 慈善捐赠：**上下两块整宽面板**，不分屏、也不看断点。
+   曾经用 `@media (min-width:900px)` 并排两栏，动机是省高度：慈善捐赠摞上去会让
+   这一页多出 154px，而奖池页的既有约束是「不出现滚动条」。
+   但那个断点其实**从来没有按预期生效过**：`.app` 是 `max-width:560px`（内容 520px），
+   容器宽度和视口无关 —— 视口一旦 ≥900 就恒为两栏，每栏只有 (520−24)/2 = **248px**，
+   而不是当初注释里以为的 430px。于是捐赠那栏一出现称谓胶囊，金额就被顶到边缘、
+   和名字贴在一起；两块榜条目数还一高一低（3 行 vs 1 行 + 两个按钮）。
+   省下的高度换来的是「挤」。
+   现在上下排、每块独占 520px。多出的 154px 靠收紧区块间距补回约 38px。
+   实测（1440×900）：docH 900、不出现滚动条，但页脚底部到视口只剩 **27px 余量**
+   （并排时是 143px）—— 上下布局换来的可读性，代价就是这份余量，多一行（约 42px）
+   就会开始滚。390×844 窄屏：docH 852，比并排时的 890 反而少了 38px。 */
+.prize-boards{
+  margin-top:14px;
+  display:flex;flex-direction:column;gap:12px;
 }
+/* 支取奖池与上面的「捐赠记录」原本严丝合缝（实测间距 0px）—— 一个灰边次操作按钮
+   紧贴着一个通栏金色主行动，看着像同一组按钮。给主行动留出自己的呼吸区。
+   这条以前没暴露，是因为并排时两块榜的底边比捐赠按钮更低，垫出了一点空隙。 */
+.prize-boards + .cta{margin-top:14px;}
 .prize-section-title{
   font-family:var(--font-label);
   font-size:12px;color:var(--paper-mute);
   letter-spacing:0.15em;
-  margin-bottom:10px;padding-bottom:6px;
+  margin-bottom:6px;padding-bottom:5px;
   border-bottom:1px solid var(--paper-ghost);
   display:flex;justify-content:space-between;align-items:center;gap:10px;
 }
 .prize-section-title .count{color:var(--gold);flex-shrink:0;}
 
-.contribution-list{display:flex;flex-direction:column;gap:4px;}
+.contribution-list{display:flex;flex-direction:column;gap:2px;}
 .contribution-item{
   display:flex;align-items:center;gap:10px;
   padding:8px 4px;
@@ -1335,7 +1346,7 @@ input{font-family:inherit;}
 .contribution-item:nth-child(2) .contrib-rank{color:var(--paper-dim);}
 .contribution-item:nth-child(3) .contrib-rank{color:var(--vermilion);}
 .contrib-avatar{
-  width:28px;height:28px;border-radius:50%;
+  width:24px;height:24px;border-radius:50%;
   overflow:hidden;
   border:1px solid var(--border-bright);
   flex-shrink:0;
@@ -1363,8 +1374,10 @@ input{font-family:inherit;}
 }
 /* 捐赠区自己的两个动作，不做通栏：整页的通栏主行动是底下的「支取奖池」，
    再摞一条通栏就分不出主次了。 */
-.donate-actions{display:flex;gap:10px;margin-top:14px;}
-.donate-actions .btn{flex:1;min-width:0;}
+.donate-actions{display:flex;gap:10px;margin-top:10px;}
+/* 不再 flex:1 —— 那个是给并排时的 430px 窄栏写的；两块榜改成上下整宽之后，
+   弹性拉伸会把两个按钮拉到各占半屏，比「支取奖池」还抢眼。给个舒适宽度就够。 */
+.donate-actions .btn{flex:0 0 auto;min-width:120px;}
 
 /* 捐赠记录弹窗里的一条 = 一笔捐赠 */
 .donation-list{display:flex;flex-direction:column;gap:8px;}
