@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useAuthGate } from '../lib/authGate'
@@ -190,6 +190,7 @@ export default function PrizePage() {
   // 已经拉下来的捐赠记录。翻页是**累加**的：弹窗内容每次都要收到全量，
   // 只塞新一页的话，先前那些行会凭空消失。
   const donationRef = useRef({ items: [], total: 0 })
+  const boardsRef = useRef(null)
 
   useEffect(() => () => { if (billTimer.current) clearTimeout(billTimer.current) }, [])
 
@@ -204,6 +205,70 @@ export default function PrizePage() {
     }
   }
   useEffect(() => { load() }, [])
+
+  // 榜单区的「护栏」。
+  //
+  // 这一页的硬约束是「不出现滚动条」，但两块榜的行数是**随人数增长**的
+  // （贡献榜按人、慈善捐赠按捐赠人）。实测 1440×900：3 行正好卡满（docH 900），
+  // 第 4 行就把整页顶出滚动条（超 15px），7 人满员超 141px；390×844 窄屏也已经滚 8px。
+  // 所以给榜单区一个**按视口算出来的**上限：超出的部分在区内滚，页面本身永远不滚。
+  // 区内不画滚动条，靠底部渐隐提示「下面还有」（和赛季详情同一套做法）。
+  //
+  // 上限必须**从视口往下减**，不能读 el.clientHeight —— 那是自指的：上限改小 →
+  // 区变矮 → 下次算出来更小，一路棘轮到下限，而且这个错值自洽、不会自己回来。
+  // 这里减的两段都不含榜单自身的高度：
+  //   before = 榜单顶边到文档顶  （页头 + 余额块 + 它们之间的间距）
+  //   after  = 榜单底边到页脚底（支取按钮 + 页脚 + 中间所有间距）
+  // after 对上限是**不变量**：榜单被压矮多少，下面的页脚就跟着上移多少，差值不变，
+  // 所以反复计算收敛到同一个值。顺带地，余额为 0 时「支取奖池」整块不渲染，
+  // after 自然变小、上限自动变大，不用为这个条件写分支。
+  //
+  // 用 offsetTop/offsetHeight 而不是 getBoundingClientRect()：页面入场动画
+  // （PageTransition 的 GSAP）会给祖先加 transform，rect 量到的是被变换过的值。
+  useLayoutEffect(() => {
+    const el = boardsRef.current
+    if (!el) return
+
+    const setAttr = (k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v }
+    const syncFade = () => {
+      const over = el.scrollHeight - el.clientHeight
+      setAttr('overflow', over > 2 ? '1' : '0')
+      setAttr('atEnd', over > 2 && el.scrollTop < over - 2 ? '0' : '1')
+    }
+
+    // 沿 offsetParent 链累加，得到相对文档的纵向偏移（同一参照系，且不受 transform 影响）
+    const offTop = (n) => { let y = 0, x = n; while (x) { y += x.offsetTop; x = x.offsetParent } return y }
+
+    const fit = () => {
+      const footer = document.querySelector('.footer')
+      if (!footer) return                       // 量不到就不设上限，退回「不裁剪」的旧行为
+      const before = offTop(el)
+      const after = offTop(footer) + footer.offsetHeight - (offTop(el) + el.offsetHeight)
+      const avail = Math.max(0, window.innerHeight - before - after)
+      el.style.setProperty('--boards-max', avail + 'px')
+      syncFade()
+    }
+
+    fit()
+    el.addEventListener('scroll', syncFade, { passive: true })
+    window.addEventListener('resize', fit)
+
+    // 内容自己长高（多一行、或字体加载完）不会触发上面任何一条：被上限截住之后
+    // el 的盒子就固定了，既没有 resize、也不会引起自己的尺寸变化。
+    // 所以要盯它的**子节点**，不是它自己。加了行就重新挂一次观察对象。
+    const ro = new ResizeObserver(syncFade)
+    const observeKids = () => { ro.disconnect(); for (const k of el.children) ro.observe(k) }
+    const mo = new MutationObserver(() => { observeKids(); syncFade() })
+    observeKids()
+    mo.observe(el, { childList: true })
+
+    return () => {
+      el.removeEventListener('scroll', syncFade)
+      window.removeEventListener('resize', fit)
+      ro.disconnect()
+      mo.disconnect()
+    }
+  }, [data])
 
   const openWithdraw = async () => {
     // reauth：支取是唯一「钱离开池子」的动作，即使本会话已经鉴权过也要重新输一次密码。
@@ -488,7 +553,7 @@ export default function PrizePage() {
             和名字贴在一起，两块榜的条目数还一高一低，看着像没排过版。
             现在上下排、各自独占整宽，行距更松；多出的高度靠收紧区块间距补回一部分。
             窄屏行为不变（本来也是上下排）。 */}
-        <div className="prize-boards">
+        <div className="prize-boards" ref={boardsRef}>
           <div className="prize-section">
             <div className="prize-section-title">
               <span>贡献榜</span>

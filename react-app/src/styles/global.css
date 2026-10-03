@@ -1314,10 +1314,30 @@ input{font-family:inherit;}
    现在上下排、每块独占 520px。多出的 154px 靠收紧区块间距补回约 38px。
    实测（1440×900）：docH 900、不出现滚动条，但页脚底部到视口只剩 **27px 余量**
    （并排时是 143px）—— 上下布局换来的可读性，代价就是这份余量，多一行（约 42px）
-   就会开始滚。390×844 窄屏：docH 852，比并排时的 890 反而少了 38px。 */
+   就会开始滚。390×844 窄屏：docH 852，比并排时的 890 反而少了 38px。
+   所以下面给榜单区加了「护栏」（max-height，见本节末）：内容再多也只在区内滚，
+   页面本身不滚。3 行时护栏够不着、完全不生效，外观与没有它时一致。 */
 .prize-boards{
   margin-top:14px;
   display:flex;flex-direction:column;gap:12px;
+  /* 护栏：上限由 PrizePage 按视口算出（--boards-max），超出的部分在区内滚。
+     行数会随人数长（贡献榜按人、慈善捐赠按捐赠人），而这一页的硬约束是
+     「不出现滚动条」—— 3 行正好卡满，第 4 行就会把整页顶出滚动条。
+     JS 没跑（或量不到页脚）时 var 缺省为 none，等于没有这层，退回旧行为。 */
+  max-height:var(--boards-max,none);
+  overflow-y:auto;
+  overscroll-behavior:contain;   /* 区内滚到底不要把滚动传给页面 */
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.prize-boards::-webkit-scrollbar{width:0;height:0;display:none;}
+/* 没有滚动条，就只剩「下面还有人」这一个提示：只有真的溢出、且没滚到底时才亮。
+   用 mask 而不是 ::after —— ::after 挂在滚动容器上会跟着内容一起滚走，
+   而 mask 作用在元素的**盒子**上，内容在盒子里滚、渐隐留在盒底。
+   不溢出时完全不挂 mask，所以外观与没有这层护栏时逐像素相同。 */
+.prize-boards[data-overflow="1"][data-at-end="0"]{
+  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
+  mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);
 }
 /* 支取奖池与上面的「捐赠记录」原本严丝合缝（实测间距 0px）—— 一个灰边次操作按钮
    紧贴着一个通栏金色主行动，看着像同一组按钮。给主行动留出自己的呼吸区。
