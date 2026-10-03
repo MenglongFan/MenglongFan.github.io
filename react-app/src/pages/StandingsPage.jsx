@@ -251,13 +251,6 @@ export default function StandingsPage() {
 
       {/* ---------- 完整榜单 ---------- */}
       <section className="standings height-guard" ref={listRef}>
-        {rest.length > 0 && (
-          <div className="list-hd">
-            <h2>完整战绩</h2>
-            <span>共 {standings.length} 人</span>
-          </div>
-        )}
-
         {rest.length === 0 && (
           <div className="detail-note">本赛季只有 1 人有战绩</div>
         )}
