@@ -98,11 +98,30 @@ function calculateBottomThreeFines(standings) {
 }
 
 // 获取当前奖池余额
+//
+// 读出来也收口到分：返回值会被拿去**比较**（`amount > currentBalance`）和相减，
+// 而历史行可能是脏的 —— 29.999999999999996 会让「想取 30 元」被判成余额不足。
 async function getCurrentBalance(db) {
   const row = await db.prepare(
     `SELECT balance FROM prize_pool_transactions ORDER BY id DESC LIMIT 1`
   ).first();
-  return row ? row.balance : 0;
+  return row ? roundMoney(row.balance) : 0;
+}
+
+// 金额收口到分。**所有写 balance 的地方都必须经过它。**
+//
+// 余额链上每一步都是「前值 ± 金额」，而 JS 的浮点加减不精确：
+// 35.7 - 5.7 = 30.000000000000004。这个尾巴一旦写进 balance 列，会被**原样展示**
+// 给玩家（奖池流水里写「余额 30.000000000000004 元」），也会让后续的比较和相减继续带脏。
+//
+// 为什么必须收成一个函数：同一个写法散在 N 处，就一定会漏掉第 N+1 处。
+// 实测就是这样 —— 赛季罚金入账、慈善捐赠、删捐赠后重算三处都写了
+// `Math.round(x * 100) / 100`，唯独**支取**漏了，于是生产库里真的出现了
+// `balance = 30.000000000000004`（id 15）。收口之后，新增写余额的地方只认它。
+//
+// 用 100 而不是 1000：金额的合法精度就是两位小数（见 hasAtMostTwoDecimals）。
+function roundMoney(x) {
+  return Math.round(x * 100) / 100;
 }
 
 // ---------- 慈善捐赠 ----------
@@ -204,7 +223,7 @@ async function settleSeason(db, seasonId) {
   for (const fine of fines) {
     // 平摊会出现 4.29 这种二进制除不尽的金额，直接累加会飘：
     // 100 + 4.29×4 + 4.28×3 得到 130.00000000000003。余额是要展示给玩家看的，每步收口到分。
-    balance = Math.round((balance + fine.amount) * 100) / 100;
+    balance = roundMoney(balance + fine.amount);
     statements.push(db.prepare(
       `INSERT INTO prize_pool_transactions (season_id, player_id, type, amount, description, balance)
        VALUES (?, ?, 'fine', ?, ?, ?)`
@@ -623,7 +642,7 @@ export default {
            FROM prize_pool_transactions WHERE type = 'donation'`
         ).first();
         // 收口到分：捐赠允许两位小数，直接相加会飘（罚金那边已经踩过一次）
-        const donationTotal = Math.round((donationTotalRow?.total || 0) * 100) / 100;
+        const donationTotal = roundMoney(donationTotalRow?.total || 0);
 
         return json({
           current_balance: currentBalance,
@@ -678,7 +697,7 @@ export default {
 
         // season_id 留空：捐赠是终身累计的，不对局、不属于任何赛季（见 docs/adr/0010）
         const currentBalance = await getCurrentBalance(env.DB);
-        const newBalance = Math.round((currentBalance + amount) * 100) / 100;
+        const newBalance = roundMoney(currentBalance + amount);
         const result = await env.DB.prepare(
           `INSERT INTO prize_pool_transactions (player_id, type, amount, description, balance)
            VALUES (?, 'donation', ?, ?, ?)`
@@ -718,7 +737,7 @@ export default {
         const prev = await env.DB.prepare(
           `SELECT balance FROM prize_pool_transactions WHERE id < ? ORDER BY id DESC LIMIT 1`
         ).bind(id).first();
-        let running = prev ? prev.balance : 0;
+        let running = roundMoney(prev ? prev.balance : 0);
 
         const { results: after } = await env.DB.prepare(
           `SELECT id, amount FROM prize_pool_transactions WHERE id > ? ORDER BY id ASC`
@@ -726,7 +745,7 @@ export default {
 
         const statements = [env.DB.prepare(`DELETE FROM prize_pool_transactions WHERE id = ?`).bind(id)];
         for (const r of after) {
-          running = Math.round((running + r.amount) * 100) / 100;
+          running = roundMoney(running + r.amount);
           statements.push(
             env.DB.prepare(`UPDATE prize_pool_transactions SET balance = ? WHERE id = ?`)
               .bind(running, r.id)
@@ -769,13 +788,21 @@ export default {
         if (!amount || amount <= 0) {
           return json({ error: '支取金额必须大于 0' }, 400);
         }
+        // 和捐赠同一个理由：金额会进入余额链，三位以上小数会让链上每个数字都变脏。
+        // 前端 input 的 step="0.01" 只是提示、不是约束，必须在这里挡住。
+        if (!hasAtMostTwoDecimals(amount)) {
+          return json({ error: '支取金额最多两位小数' }, 400);
+        }
 
         const currentBalance = await getCurrentBalance(env.DB);
         if (amount > currentBalance) {
           return json({ error: '奖池余额不足' }, 400);
         }
 
-        const newBalance = currentBalance - amount;
+        // **必须收口到分**：`currentBalance - amount` 在浮点下不精确，
+        // 35.7 - 5.7 = 30.000000000000004。不 round 就会把这个尾巴写进 balance 列、
+        // 在奖池流水里原样展示给玩家（线上真的发生过，id 15）。
+        const newBalance = roundMoney(currentBalance - amount);
         const result = await env.DB.prepare(
           `INSERT INTO prize_pool_transactions (type, amount, description, balance)
            VALUES ('withdrawal', ?, ?, ?)`
