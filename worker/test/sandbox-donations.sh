@@ -16,7 +16,6 @@
 set -uo pipefail
 
 BASE=http://127.0.0.1:8787
-KEY=local-sandbox-key
 WR="/Users/lone/Library/Application Support/TRAE SOLO CN/ModularData/ai-agent/vm/tools/npm-global/bin/wrangler"
 OUT=$(mktemp -d)
 trap 'echo; echo "中间产物留在 $OUT"' EXIT
@@ -26,6 +25,7 @@ trap 'echo; echo "中间产物留在 $OUT"' EXIT
 # 断言那一行会以「文件不存在」失败，而前面所有段看起来都正常 —— 白跑两分半。
 HERE=$(cd "$(dirname "$0")" && pwd)
 cd "$HERE/.." || exit 1
+. "$HERE/sandbox-env.sh"   # 取沙盒口令（只从 .dev.vars 读，见该文件顶部说明）
 
 call() { # call <名字> <方法> <路径> [json] [auth]
   local name=$1 method=$2 path=$3 json=${4:-} auth=${5:-}

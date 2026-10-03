@@ -38,11 +38,17 @@ wrangler secret put HOUSE_KEY
 
 输入你的房主密码（如 `sanguo2026`），密码不会出现在代码中。
 
-本地沙盒另用 `worker/.dev.vars`（已在 `.gitignore` 里）：
+本地沙盒另用 `worker/.dev.vars`（已在 `.gitignore` 里）—— **放一个本地专用的口令即可**：
 
 ```
-HOUSE_KEY=local-sandbox-key
+HOUSE_KEY=<随便定一个，例如 local-dev>
 ```
+
+沙盒的 Worker 从这个文件读 `HOUSE_KEY`，`test/sandbox-*.sh` 也从它读同一个值放进
+`X-House-Key`，两边对上就行。**不要**把线上那个密码填进来 —— 本仓库是**公开**的，
+填进来等于把它公开。2026-10-04 就漏过一次：脚本里硬编码了线上密钥，而
+`raw.githubusercontent.com` 上能直接下载到那个文件，拿到的人就能调支取奖池这类写接口。
+现在脚本统一从 `test/sandbox-env.sh` 取口令，那个文件里写清了原委。
 
 ## 5. 部署 Worker
 
