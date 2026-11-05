@@ -1060,6 +1060,26 @@ input{font-family:inherit;}
   box-shadow:0 0 12px var(--gold-glow);
 }
 
+/* 首亮按钮与「存/亡」并排。包一层容器，避免新按钮再吃掉一个 12px 的列间 gap
+   —— 320px 窄屏上那 12px 会直接从名字身上扣掉。 */
+.sort-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.sort-reveal{
+  width:34px;height:34px;border-radius:11px;
+  border:1px dashed var(--border-bright);background:transparent;
+  color:var(--paper-mute);font-size:14px;font-weight:700;cursor:pointer;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  transition:all .25s;
+  font-family:var(--font-serif);
+}
+.sort-reveal:hover{border-style:solid;color:var(--paper-bright);background:var(--glass);}
+.sort-reveal.active{
+  background:linear-gradient(135deg,#F2E0B0,#C9A44C);
+  color:#241B08;border:1px solid transparent;
+  box-shadow:0 0 12px var(--gold-glow);
+}
+/* inset 而不是 border-left：不改边框宽度，行高与拖拽落点测量保持原样。 */
+.sort-item.first-reveal{box-shadow:inset 2px 0 0 var(--gold);}
+
 .score-preview{
   margin-top:18px;padding:16px;
   background:rgba(var(--shade),0.28);border-radius:var(--radius);
@@ -1083,6 +1103,11 @@ input{font-family:inherit;}
 .score-chip.survivor{
   background:rgba(233,200,124,0.14);color:var(--gold-bright);
   border:1px solid rgba(233,200,124,0.30);
+}
+/* 首亮者的预览 chip 用内描边，不改盒尺寸（基础 chip 本来没有 border）。 */
+.score-chip.first-reveal{
+  background:rgba(233,200,124,0.24);color:var(--gold-bright);
+  box-shadow:inset 0 0 0 1px rgba(233,200,124,0.55);
 }
 .score-chip .val{color:var(--gold);margin-left:6px;font-family:var(--font-display);font-size:15px;}
 
@@ -1933,6 +1958,17 @@ input{font-family:inherit;}
   .hero-avatar{width:54px;height:54px;}
   .hero-name{font-size:20px;}
   .prize-total .amount{font-size:44px;}
+  /* 首亮按钮让行尾多占了约 40px。窄屏先收紧间距与控件尺寸把宽度还回来：
+     320px 视口下 .sort-list 只有 242px（overlay 32 + 边框 2 + modal-body padding 44），
+     而收紧前的行内固定项约 276px，不只是 .sort-name 归零，整行还会溢出约 34px，
+     右侧按钮可能被 .modal 的 overflow:hidden 裁掉（ADR 0008 记过「盲拖」这个失效模式）。
+     两个断点都是仓库里已有的，不另造一个值。 */
+  .sort-item{gap:8px;padding:12px 10px;}
+  .sort-rank{width:22px;font-size:17px;}
+  .sort-avatar{width:26px;height:26px;}
+  .sort-score{width:32px;font-size:19px;}
+  .sort-actions{gap:5px;}
+  .sort-reveal,.sort-toggle{width:30px;height:30px;font-size:13px;}
 }
 
 @media(max-width:360px){
@@ -1966,6 +2002,10 @@ input{font-family:inherit;}
   .prize-total .amount .yuan{font-size:18px;}
   .season-item{flex-wrap:wrap;}
   .season-item .s-actions{width:100%;justify-content:flex-end;}
+  /* 320px 下上面那档收紧仍只能给 .sort-name 留出十几 px。隐藏行内分数：
+     下方「分数预览」区本来就有每人的最终分（含首亮 +1），信息没丢，只是不重复显示。
+     这样 .sort-name 回到约 57px，比新增按钮之前的版本还宽。 */
+  .sort-score{display:none;}
 }
 
 @media(min-width:640px){

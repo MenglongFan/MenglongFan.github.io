@@ -52,3 +52,24 @@
 - 积分榜总名次（`StandingsPage` 的 `i + 2`）是**另一个概念**，按数组下标排，
   本 ADR 不覆盖。若将来出现总积分与存活次数都相同的选手，那里会显示成不同名次，
   届时需要单独决定。
+
+## 后补（2026-11-05）：积分榜总名次只看积分
+
+上面留的口子补上了。`/api/standings` 一度改用
+`RANK() OVER (ORDER BY total_score DESC, survival_count DESC)`，把**存活次数**也算进
+并列判定：三个 29 分的选手因存活 2 / 2 / 1 次被排成第 2、2、4 名。这与 ADR 0004 的
+「同分即同排名」矛盾 —— 存活次数只是展示用的次级信息，不是名次依据。
+
+现在名次由 `assignStandingsRanks` 派生，规则与逐局名次一致：
+`名次 = 1 + 总积分严格高于自己的人数`（并列占位、跳号）。SQL 的
+`ORDER BY total_score DESC, survival_count DESC, p.id ASC` 只决定同分组内的**展示顺序**，
+榜面行序不变，也不能省（否则榜首卡会在两次刷新间换人）。
+
+注意 `p.id` 的表前缀不能省：去掉 `RANK()` 外层后，`ORDER BY` 下移到带三表 JOIN 的
+单层查询里，裸 `id` 会成为歧义列（`players` / `matches` / `match_results` 都有），
+SQLite 直接报 `ambiguous column name: id`，接口会 500。这条只有真跑一次 SQL 才能发现，
+纯 JS 单测测不出来。
+
+- 逐局明细的推导（本 ADR 正文）不变；罚金按积分切并列组，与 `rank` 无关，不受影响。
+- 积分榜与赛季历史榜共用 `/api/standings`，前端无需改动；名次仍是派生值，不落库、不需迁移。
+- 回归测试：`node worker/test/standings-rank.test.mjs`。

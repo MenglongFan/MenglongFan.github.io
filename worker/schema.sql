@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS matches (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   season_id    INTEGER NOT NULL REFERENCES seasons(id),
   player_count INTEGER NOT NULL,
-  played_at    TEXT DEFAULT (datetime('now'))
+  played_at    TEXT DEFAULT (datetime('now')),
+  -- 一局最先亮将的玩家（ADR 0012）。NULL = 本局不指定、不加分。
+  -- 历史对局一律为 NULL、不回填；仅作审计留底，不参与任何读取接口。
+  first_reveal_player_id INTEGER REFERENCES players(id)
 );
 
 CREATE TABLE IF NOT EXISTS match_results (

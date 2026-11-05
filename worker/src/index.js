@@ -20,8 +20,11 @@ function checkAuth(request, env) {
   return key && key === env.HOUSE_KEY;
 }
 
-// 积分公式：存活者得 (死亡人数+1) 分，死者从死亡人数递减至 1
-function calculateScores(results) {
+// 积分公式：存活者得 (死亡人数+1) 分，死者从死亡人数递减至 1；
+// 首亮玩家在此基础上再加 1 分（ADR 0012）。
+// 注意：react-app/src/pages/MatchPage.jsx 的「分数预览」是这份逻辑的第二份实现，
+// 改动必须两处同步，单测里有源码守卫盯着。
+function calculateScores(results, firstRevealPlayerId = null) {
   const total = results.length;
   const survivors = results.filter(r => r.is_survivor === 1);
   const dead = results.filter(r => r.is_survivor === 0);
@@ -32,7 +35,33 @@ function calculateScores(results) {
   dead.sort((a, b) => a.rank - b.rank);
   dead.forEach((r, i) => { r.score = D - i; });
 
+  // 首亮加分：null / 不在本局名单里 = 本局不指定，不加分。
+  // 入参来自 JSON，可能是数字也可能是字符串，统一按字符串比，避免 '3' !== 3 静默漏加。
+  if (firstRevealPlayerId != null) {
+    const first = results.find(r => String(r.player_id) === String(firstRevealPlayerId));
+    if (first) first.score += 1;
+  }
+
   return results;
+}
+
+// 积分榜总名次：只看总积分，同分即同名次（并列占位、跳号）。
+//
+// 存活次数不参与名次判定，只用于同分组内的展示顺序。以前这里用
+// RANK() OVER (ORDER BY total_score DESC, survival_count DESC)，把存活次数
+// 也算进了并列判定 —— 「29 分 / 存活 2 次」和「29 分 / 存活 1 次」被排成
+// 第 2 名和第 4 名，与 ADR 0004 定的「同分即同排名」直接矛盾。
+//
+// 入参必须已按 total_score DESC 排好；名次 = 1 + 积分严格高于自己的人数。
+// 返回新数组，不修改 SQL 结果，也不动其它字段。见 docs/adr/0005 末尾后补。
+function assignStandingsRanks(rows) {
+  let rank = 0;
+  let prevScore;
+  return rows.map((row, i) => {
+    if (i === 0 || row.total_score !== prevScore) rank = i + 1;
+    prevScore = row.total_score;
+    return { ...row, rank };
+  });
 }
 
 // 末尾三名罚金计算（含同分平摊）
@@ -427,30 +456,25 @@ export default {
         }
         if (!season) return json({ season: null, standings: [] });
 
-        // 总名次同样不能用「数组下标」给 —— 积分和存活次数完全相同的两个人必须并列。
-        // 规则与逐局名次一致：名次 = 1 + 严格排在前面的人数（并列占位、跳号，
-        // 即 1 1 3 4 5 而不是 1 1 2 3 4），见 docs/adr/0005。
+        // SQL 只负责聚合并给出稳定顺序：同分组内按存活次数、再按 id，
+        // 否则榜首卡（standings[0]）会在两次刷新之间换人。
         //
-        // 窗口函数不能和 GROUP BY 写在同一个 SELECT 里，所以先聚合出一层子查询再套 RANK()。
-        // 最外层再补一个 id ASC：并列时顺序不能靠 SQLite 的默认行为，否则榜首卡
-        // （standings[0]）会在两次刷新之间换人。
+        // 名次由 assignStandingsRanks 派生，不再用 RANK() OVER —— 窗口函数的
+        // ORDER BY 和展示排序共用一个列表，很容易把存活次数又带进并列判定。
         const stmt = env.DB.prepare(
-          `SELECT *, RANK() OVER (ORDER BY total_score DESC, survival_count DESC) AS rank
-             FROM (
-               SELECT p.id, p.name, p.avatar_url,
+          `SELECT p.id, p.name, p.avatar_url,
                   SUM(mr.score) as total_score,
                   COUNT(mr.id) as match_count,
                   SUM(mr.is_survivor) as survival_count
-                FROM match_results mr
-                JOIN players p ON mr.player_id = p.id
-                JOIN matches m ON mr.match_id = m.id
-                WHERE m.season_id = ?
-                GROUP BY p.id
-             )
-             ORDER BY total_score DESC, survival_count DESC, id ASC`
+             FROM match_results mr
+             JOIN players p ON mr.player_id = p.id
+             JOIN matches m ON mr.match_id = m.id
+             WHERE m.season_id = ?
+             GROUP BY p.id
+             ORDER BY total_score DESC, survival_count DESC, p.id ASC`
         );
         const { results } = await stmt.bind(season.id).all();
-        return json({ season, standings: results });
+        return json({ season, standings: assignStandingsRanks(results) });
       }
 
       // GET /api/players — 花名册
@@ -550,7 +574,7 @@ export default {
       if (path === '/api/match' && method === 'POST') {
         if (!checkAuth(request, env)) return json({ error: '密码错误' }, 401);
         const body = await request.json();
-        const { season_id, results } = body;
+        const { season_id, results, first_reveal_player_id } = body;
 
         // 验证 5-10 人
         if (results.length < 5 || results.length > 10) {
@@ -565,15 +589,32 @@ export default {
         if (season.status === 'ended') return json({ error: '赛季已结束，无法录入成绩' }, 400);
         if (!season.is_active) return json({ error: '赛季已暂存，恢复后才能录入成绩' }, 400);
 
-        // 计算积分
-        const scored = calculateScores(results);
+        // 首亮玩家必须真的在「本局参赛名单」里（ADR 0012）。
+        // 光比 results 不够：那是请求体自带的，房主密码只挡误操作、挡不住手改请求。
+        // season_players 才是服务端认定的参赛名单，两处都要过 —— 否则伪造的 id
+        // 会绕过这里，到 INSERT 才撞外键变成 500，而不是规格要求的 400。
+        // null / 缺省 = 本局不指定、不加分，是合法状态。
+        const firstRevealId = first_reveal_player_id == null ? null : first_reveal_player_id;
+        if (firstRevealId !== null) {
+          const inResults = results.some(r => String(r.player_id) === String(firstRevealId));
+          const enrolled = await env.DB.prepare(
+            `SELECT 1 FROM season_players WHERE season_id = ? AND player_id = ?`
+          ).bind(season_id, firstRevealId).first();
+          if (!inResults || !enrolled) {
+            return json({ error: '首亮玩家不在本局参赛名单内' }, 400);
+          }
+        }
+
+        // 计算积分（首亮加分并入 score，ADR 0012）
+        const scored = calculateScores(results, firstRevealId);
         const total = scored.length;
         const survivorCount = scored.filter(r => r.is_survivor === 1).length;
 
-        // 插入 match
+        // 插入 match。first_reveal_player_id 只作审计留底，不进任何读取接口；
+        // 历史对局该列为 NULL，不回填（ADR 0012 / ADR 0003）。
         const matchResult = await env.DB.prepare(
-          `INSERT INTO matches (season_id, player_count) VALUES (?, ?)`
-        ).bind(season_id, total).run();
+          `INSERT INTO matches (season_id, player_count, first_reveal_player_id) VALUES (?, ?, ?)`
+        ).bind(season_id, total, firstRevealId).run();
         const matchId = matchResult.meta.last_row_id;
 
         // 批量插入 match_results

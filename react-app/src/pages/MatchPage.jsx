@@ -13,6 +13,8 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   const [order, setOrder] = useState(
     players.map((p) => ({ player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 }))
   )
+  // 本局最先亮将者（ADR 0012）：null = 不指定、不加分。一局至多一人。
+  const [firstRevealId, setFirstRevealId] = useState(null)
   const [dragIndex, setDragIndex] = useState(null)
   const listRef = useRef(null)
   const dragRef = useRef(null)
@@ -24,16 +26,25 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   const total = order.length
   const survivors = order.filter((r) => r.is_survivor).length
   const dead = total - survivors
-  const topScore = survivors > 0 ? dead + 1 : dead
+  // 与后端 calculateScores 用同一份公式：存活者恒为 (死亡人数 + 1)。
+  // 旧写法在全员淘汰时取 dead，虽因无人存活而显示不出差异，但两份实现确实分叉了。
+  const topScore = dead + 1
   const deadList = order.filter((r) => !r.is_survivor)
 
+  // 预览直接显示含首亮 +1 的最终分，与落库结果一致。
   const scores = order.map((r) => {
-    if (r.is_survivor) return topScore
-    return dead - deadList.indexOf(r)
+    const base = r.is_survivor ? topScore : dead - deadList.indexOf(r)
+    return r.player_id === firstRevealId ? base + 1 : base
   })
+  const maxScore = Math.max(...scores)
 
   const toggleSurvivor = (i) => {
     setOrder((prev) => prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r))
+  }
+
+  // 单选互斥：点别人自动换人，再点自己取消。
+  const toggleFirstReveal = (playerId) => {
+    setFirstRevealId((prev) => prev === playerId ? null : playerId)
   }
 
   // 拖拽排序。
@@ -50,7 +61,7 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
     const isMouse = e.pointerType === 'mouse' || e.pointerType === ''
     if (isMouse) {
       if (e.button !== 0) return                     // 只认左键
-      if (e.target.closest('.sort-toggle')) return   // 点在「存/亡」上是点击，不是拖拽
+      if (e.target.closest('.sort-toggle, .sort-reveal')) return   // 点在行内按钮上是点击，不是拖拽
     } else if (!e.target.closest('.sort-handle')) {
       return
     }
@@ -157,7 +168,11 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
       await api('/api/match', {
         method: 'POST',
         auth: true,
-        body: JSON.stringify({ season_id: season.id, results }),
+        body: JSON.stringify({
+          season_id: season.id,
+          first_reveal_player_id: firstRevealId,
+          results,
+        }),
       })
       onSubmitted()
     } catch (e) {
@@ -171,38 +186,54 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   return (
     <>
       <div className="sort-hint">
-        拖住左侧 <b>⠿</b> 上下拖动，排列淘汰顺序（<b>上方 = 最后存活</b>，下方 = 先出局）。点击右侧按钮标记存活者。
+        拖住左侧 <b>⠿</b> 排淘汰顺序（<b>上方 = 最后存活</b>）。「存/亡」标记存活者，「亮」指定本局最先亮将者（<b>+1 分</b>，至多一人，再点取消）。
       </div>
       <div className="sort-list" ref={listRef}>
-        {order.map((r, i) => (
-          <div
-            key={r.player_id}
-            className={`sort-item ${r.is_survivor ? 'survivor' : ''} ${dragIndex === i ? 'dragging' : ''}`}
-            onPointerDown={(e) => startDrag(e, i)}
-          >
-            <span className="sort-handle">⠿</span>
-            <span className="sort-rank">{i + 1}</span>
-            <Avatar url={r.avatar_url} name={r.name} className="sort-avatar" />
-            <span className="sort-name">{r.name}</span>
-            <span className="sort-score">{scores[i]}</span>
-            <button
-              className={`sort-toggle ${r.is_survivor ? 'active' : ''}`}
-              onClick={() => toggleSurvivor(i)}
-              title="存活/淘汰"
+        {order.map((r, i) => {
+          const isFirst = firstRevealId === r.player_id
+          return (
+            <div
+              key={r.player_id}
+              className={`sort-item ${r.is_survivor ? 'survivor' : ''} ${isFirst ? 'first-reveal' : ''} ${dragIndex === i ? 'dragging' : ''}`}
+              onPointerDown={(e) => startDrag(e, i)}
             >
-              {r.is_survivor ? '存' : '亡'}
-            </button>
-          </div>
-        ))}
+              <span className="sort-handle">⠿</span>
+              <span className="sort-rank">{i + 1}</span>
+              <Avatar url={r.avatar_url} name={r.name} className="sort-avatar" />
+              <span className="sort-name">{r.name}</span>
+              <span className="sort-score">{scores[i]}</span>
+              <div className="sort-actions">
+                <button
+                  className={`sort-reveal ${isFirst ? 'active' : ''}`}
+                  onClick={() => toggleFirstReveal(r.player_id)}
+                  title="本局最先亮将（+1 分，每局至多一人）"
+                  aria-pressed={isFirst}
+                >
+                  亮
+                </button>
+                <button
+                  className={`sort-toggle ${r.is_survivor ? 'active' : ''}`}
+                  onClick={() => toggleSurvivor(i)}
+                  title="存活/淘汰"
+                >
+                  {r.is_survivor ? '存' : '亡'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
       </div>
       <div className="score-preview">
         <div className="score-preview-title">
           <span>分数预览</span>
-          <span className="top-score">存活 {survivors} · 淘汰 {dead} · 最高 {topScore} 分</span>
+          <span className="top-score">存活 {survivors} · 淘汰 {dead} · 最高 {maxScore} 分</span>
         </div>
         <div className="score-preview-grid">
           {order.map((r, i) => (
-            <span key={r.player_id} className={`score-chip ${r.is_survivor ? 'survivor' : ''}`}>
+            <span
+              key={r.player_id}
+              className={`score-chip ${r.is_survivor ? 'survivor' : ''} ${firstRevealId === r.player_id ? 'first-reveal' : ''}`}
+            >
               {r.name}<span className="val">{scores[i]}</span>
             </span>
           ))}
@@ -287,7 +318,7 @@ export default function MatchPage() {
         eyebrow={`${season.name} · 进行中`}
         meta="本局"
         title="录入战绩"
-        sub="拖拽排序淘汰顺序 · 点右侧标记存活"
+        sub="拖拽排序淘汰顺序 · 标记存活 · 指定首亮（+1）"
       />
 
       <section className="standings">
