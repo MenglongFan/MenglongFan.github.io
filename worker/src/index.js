@@ -571,13 +571,16 @@ export default {
         //
         // is_first_reveal 是派生布尔、不落库：拿局级 matches.first_reveal_player_id
         // 和当前行的 player_id 比一下即可。历史对局该列为 NULL，CASE 走 ELSE 0，不会误标。
-        // 三处明细（积分榜个人展开 / 赛季页整赛季逐局 / 赛季页个人展开）都吃这个接口，
-        // 所以只在这里加一列就能同时生效 —— 正是 ADR 0005 定的那套共享字段（ADR 0012 后补）。
+// 三处明细（积分榜个人展开 / 赛季页整赛季逐局 / 赛季页个人展开）都吃这个接口，
+// 所以只在这里加一列就能同时生效 —— 正是 ADR 0005 定的那套共享字段（ADR 0012 后补）。
+// kill_count 同理：历史对局该列为 NULL，COALESCE 成 0；前端只在 > 0 时显示「杀N」标签，
+// 老对局不会被误标，也不用回填（ADR 0013 后补）。
         const stmt = env.DB.prepare(
           `SELECT m.id, m.played_at,
              (SELECT COUNT(*) FROM match_results x
                WHERE x.match_id = mr.match_id AND x.score > mr.score) + 1 AS rank,
              mr.is_survivor, mr.score,
+             COALESCE(mr.kill_count, 0) AS kill_count,
              CASE WHEN m.first_reveal_player_id = mr.player_id THEN 1 ELSE 0 END AS is_first_reveal
            FROM match_results mr
            JOIN matches m ON mr.match_id = m.id

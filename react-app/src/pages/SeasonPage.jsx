@@ -232,6 +232,11 @@ function MatchPager({ matches }) {
                     {r.is_first_reveal ? (
                       <span className="stamp reveal" title="本局最先亮将（+1 分）">亮</span>
                     ) : null}
+                    {r.kill_count > 0 ? (
+                      <span className="stamp kill" title={`本局击杀 ${r.kill_count} 次（+${r.kill_count} 分）`}>
+                        杀{r.kill_count}
+                      </span>
+                    ) : null}
                     <span className="m-score">{r.score}分</span>
                   </div>
                 ))}
@@ -454,6 +459,11 @@ function SeasonDetail({ season, standings }) {
                             </span>
                             {d.is_first_reveal ? (
                               <span className="stamp reveal" title="本局最先亮将（+1 分）">亮</span>
+                            ) : null}
+                            {d.kill_count > 0 ? (
+                              <span className="stamp kill" title={`本局击杀 ${d.kill_count} 次（+${d.kill_count} 分）`}>
+                                杀{d.kill_count}
+                              </span>
                             ) : null}
                             {matchNoById.has(d.id) && (
                               <span className="d-no">第 {matchNoById.get(d.id)} 局</span>

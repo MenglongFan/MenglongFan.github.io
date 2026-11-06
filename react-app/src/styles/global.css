@@ -583,6 +583,17 @@ input{font-family:inherit;}
   background:rgba(226,75,54,0.14);color:var(--vermilion);
   border:1px solid rgba(226,75,54,0.42);
 }
+/* 击杀数标签（ADR 0013 后补）：与「存/亡」「亮」并列，用青绿区分第三种语义。
+   内容是「杀N」不是单字，所以宽度自适应、高度与其余印章一致。
+   分数仍显示最终值、不拆分；这一项加了多少分放在 title 里说明。
+   历史对局 kill_count 为 NULL → 接口 COALESCE 成 0 → 前端不渲染，不会被误标。 */
+.detail-row .stamp.kill,
+.match-row .stamp.kill{
+  width:auto;min-width:20px;padding:0 5px;
+  background:rgba(87,192,138,0.14);color:var(--jade-bright);
+  border:1px solid rgba(87,192,138,0.42);
+  font-variant-numeric:tabular-nums;
+}
 .detail-row .d-left{display:flex;align-items:center;gap:7px;min-width:0;}
 /* 存亡章 + 局号 打包成一组：宽屏时和日期并排，窄屏时整组留在第一行、日期换到第二行
    （见文件底部 @media(max-width:360px)） */
@@ -2034,6 +2045,9 @@ input{font-family:inherit;}
   /* 行间距 10 -> 6：320px 时左组要 90px，分到 89px，差 1px 就够 .d-left 溢出。
      收紧间距让出 8px，不靠“刚好够”吃饭。 */
   .detail-row{gap:6px;}
+  /* 第三枚印章让 .d-top 变宽：收紧间距 + 压小「杀N」，避免 320px 下把日期挤没。 */
+  .detail-row .d-top{gap:5px;}
+  .detail-row .stamp.kill,.match-row .stamp.kill{padding:0 4px;font-size:10px;}
   .bottom-nav-item .nav-label{font-size:9.5px;letter-spacing:0.02em;}
   .bottom-nav-item svg{width:18px;height:18px;}
   .prize-total .amount{font-size:38px;}

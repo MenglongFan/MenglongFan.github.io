@@ -149,5 +149,31 @@ ok('击杀控件在分数预览区、不在拖拽行',
 ok('拖拽排除名单未被改动', jsx.includes(".closest('.sort-toggle, .sort-reveal')"))
 ok('击杀控件有样式', /\.kill-ctrl\{/.test(css) && /\.kill-ctrl \.kill-add/.test(css))
 
+// ---- 逐局明细的「杀N」标签（ADR 0013 后补）----
+// 三处明细都吃 /api/player/:id/details，纯函数测不到 SQL 有没有把击杀数带出来，
+// 也测不到三处 JSX 有没有渲染 —— 用源码守卫盯住，漏一处用户就有一处看不到。
+const standingsJsx = readFileSync(new URL('../../react-app/src/pages/StandingsPage.jsx', import.meta.url), 'utf8')
+const seasonJsx = readFileSync(new URL('../../react-app/src/pages/SeasonPage.jsx', import.meta.url), 'utf8')
+const detailHandler = src.slice(
+  src.indexOf('// GET /api/player/:id/details'),
+  src.indexOf('// POST /api/match')
+)
+ok('/api/player/:id/details 派生 kill_count 供三处明细使用',
+  /COALESCE\(mr\.kill_count,\s*0\) AS kill_count/.test(detailHandler))
+ok('历史对局 kill_count 为 NULL 时归零（不回填、不误标）',
+  /COALESCE\(mr\.kill_count,\s*0\)/.test(detailHandler) && !/UPDATE\s+match_results/i.test(detailHandler))
+ok('三处明细都渲染「杀N」标签（积分榜 1 处 + 赛季页 2 处）',
+  /stamp kill/.test(standingsJsx) && (seasonJsx.match(/stamp kill/g) || []).length >= 2)
+ok('只在击杀数 > 0 时显示，0 次 / 历史对局不留空标签',
+  (standingsJsx.match(/kill_count > 0/g) || []).length >= 1 &&
+  (seasonJsx.match(/kill_count > 0/g) || []).length >= 2)
+ok('分数仍显示最终值，不拆分加分来源',
+  /\{d\.score\}分/.test(standingsJsx) && /\{r\.score\}分/.test(seasonJsx))
+ok('标签 title 说明这一项加了多少分', /本局击杀 \$\{/.test(standingsJsx))
+ok('.stamp.kill 配色同时覆盖 detail-row 与 match-row',
+  /\.detail-row \.stamp\.kill,/.test(css) && /\.match-row \.stamp\.kill\{/.test(css))
+ok('窄屏收紧第三枚印章，避免 320px 溢出',
+  /\.detail-row \.stamp\.kill,\.match-row \.stamp\.kill\{padding:0 4px/.test(css))
+
 if (failed) { console.error(`\n${failed} 项失败`); process.exit(1) }
 console.log('\n全部通过')
