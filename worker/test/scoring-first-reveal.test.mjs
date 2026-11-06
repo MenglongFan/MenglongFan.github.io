@@ -100,5 +100,27 @@ ok('前端提交体带上首亮 id', jsx.includes('first_reveal_player_id: first
 ok('拖拽排除新按钮（否则点「亮」会起拖）',
   jsx.includes(".closest('.sort-toggle, .sort-reveal')"))
 
+// ---- 逐局明细的「亮」印章（ADR 0012 后补）----
+// 三处明细共用 /api/player/:id/details。纯函数测不到 SQL 有没有把标记派生出来，
+// 而漏了它前端三枚印章就永远不亮 —— 用源码守卫盯住。
+const detailHandler = src.slice(
+  src.indexOf('// GET /api/player/:id/details'),
+  src.indexOf('// POST /api/match')
+)
+ok('/api/player/:id/details 派生 is_first_reveal 供三处明细使用',
+  /CASE WHEN m\.first_reveal_player_id = mr\.player_id[\s\S]*?AS is_first_reveal/.test(detailHandler))
+ok('历史对局（首亮列为 NULL）走 ELSE 0，不会被误标',
+  /THEN 1 ELSE 0 END AS is_first_reveal/.test(detailHandler))
+
+const standingsJsx = readFileSync(new URL('../../react-app/src/pages/StandingsPage.jsx', import.meta.url), 'utf8')
+const seasonJsx = readFileSync(new URL('../../react-app/src/pages/SeasonPage.jsx', import.meta.url), 'utf8')
+const css = readFileSync(new URL('../../react-app/src/styles/global.css', import.meta.url), 'utf8')
+ok('三处明细都渲染「亮」印章（积分榜 1 处 + 赛季页 2 处）',
+  /stamp reveal/.test(standingsJsx) && (seasonJsx.match(/stamp reveal/g) || []).length >= 2)
+ok('积分榜明细用 .d-top 打包两枚章（窄屏不竖排成三行）',
+  /className="d-top"/.test(standingsJsx))
+ok('.stamp.reveal 配色同时覆盖 detail-row 与 match-row',
+  /\.detail-row \.stamp\.reveal,/.test(css) && /\.match-row \.stamp\.reveal\{/.test(css))
+
 if (failed) { console.error(`\n${failed} 项失败`); process.exit(1) }
 console.log('\n全部通过')

@@ -575,6 +575,14 @@ input{font-family:inherit;}
 }
 .detail-row .stamp.alive{background:rgba(233,200,124,0.15);color:var(--gold);border:1px solid rgba(233,200,124,0.30);}
 .detail-row .stamp.dead{background:rgba(255,255,255,0.04);color:var(--paper-mute);border:1px solid var(--border);}
+/* 首亮印章（ADR 0012 后补）：与「存/亡」并列，用朱红从金/灰里跳出来。
+   只补配色不改盒尺寸 —— .stamp 的 20x20 由上面两条基础规则定，两处共用。
+   .detail-row 与 .match-row 两套 stamp 尺寸一致，所以一条规则覆盖三处明细。 */
+.detail-row .stamp.reveal,
+.match-row .stamp.reveal{
+  background:rgba(226,75,54,0.14);color:var(--vermilion);
+  border:1px solid rgba(226,75,54,0.42);
+}
 .detail-row .d-left{display:flex;align-items:center;gap:7px;min-width:0;}
 /* 存亡章 + 局号 打包成一组：宽屏时和日期并排，窄屏时整组留在第一行、日期换到第二行
    （见文件底部 @media(max-width:360px)） */

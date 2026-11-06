@@ -556,11 +556,17 @@ export default {
         // 例：第 22 局得分 4,4,3,2,1 → 名次 1,1,3,4,5。
         //
         // rank 列本身不动：它仍是 calculateScores 决定淘汰者先后的输入。
+        //
+        // is_first_reveal 是派生布尔、不落库：拿局级 matches.first_reveal_player_id
+        // 和当前行的 player_id 比一下即可。历史对局该列为 NULL，CASE 走 ELSE 0，不会误标。
+        // 三处明细（积分榜个人展开 / 赛季页整赛季逐局 / 赛季页个人展开）都吃这个接口，
+        // 所以只在这里加一列就能同时生效 —— 正是 ADR 0005 定的那套共享字段（ADR 0012 后补）。
         const stmt = env.DB.prepare(
           `SELECT m.id, m.played_at,
              (SELECT COUNT(*) FROM match_results x
                WHERE x.match_id = mr.match_id AND x.score > mr.score) + 1 AS rank,
-             mr.is_survivor, mr.score
+             mr.is_survivor, mr.score,
+             CASE WHEN m.first_reveal_player_id = mr.player_id THEN 1 ELSE 0 END AS is_first_reveal
            FROM match_results mr
            JOIN matches m ON mr.match_id = m.id
            WHERE mr.player_id = ? AND m.season_id = ?
@@ -610,8 +616,9 @@ export default {
         const total = scored.length;
         const survivorCount = scored.filter(r => r.is_survivor === 1).length;
 
-        // 插入 match。first_reveal_player_id 只作审计留底，不进任何读取接口；
-        // 历史对局该列为 NULL，不回填（ADR 0012 / ADR 0003）。
+        // 插入 match。first_reveal_player_id 是局级真相，
+        // /api/player/:id/details 由它派生 is_first_reveal 供三处明细使用（ADR 0012 后补）；
+        // 历史对局该列为 NULL，不回填（ADR 0003）。
         const matchResult = await env.DB.prepare(
           `INSERT INTO matches (season_id, player_count, first_reveal_player_id) VALUES (?, ?, ?)`
         ).bind(season_id, total, firstRevealId).run();

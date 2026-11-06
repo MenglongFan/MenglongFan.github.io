@@ -29,8 +29,15 @@ function PlayerDetail({ playerId, open, details }) {
           details[playerId].map((d) => (
             <div className="detail-row" key={d.id}>
               <span className="d-left">
-                <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
-                  {d.is_survivor ? '存' : '亡'}
+                {/* 两枚章用 .d-top 打包：360px 下 .d-left 会竖排，
+                    不打包的话「存/亡」「亮」「日期」会变成三行，把明细行撑高。 */}
+                <span className="d-top">
+                  <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
+                    {d.is_survivor ? '存' : '亡'}
+                  </span>
+                  {d.is_first_reveal ? (
+                    <span className="stamp reveal" title="本局最先亮将（+1 分）">亮</span>
+                  ) : null}
                 </span>
                 <span className="d-date">
                   {d.played_at ? d.played_at.slice(5, 16).replace('T', ' ') : '—'}

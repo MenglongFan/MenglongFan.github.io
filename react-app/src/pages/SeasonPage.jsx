@@ -229,6 +229,9 @@ function MatchPager({ matches }) {
                     <span className={`stamp ${r.is_survivor ? 'alive' : 'dead'}`}>
                       {r.is_survivor ? '存' : '亡'}
                     </span>
+                    {r.is_first_reveal ? (
+                      <span className="stamp reveal" title="本局最先亮将（+1 分）">亮</span>
+                    ) : null}
                     <span className="m-score">{r.score}分</span>
                   </div>
                 ))}
@@ -449,6 +452,9 @@ function SeasonDetail({ season, standings }) {
                             <span className={`stamp ${d.is_survivor ? 'alive' : 'dead'}`}>
                               {d.is_survivor ? '存' : '亡'}
                             </span>
+                            {d.is_first_reveal ? (
+                              <span className="stamp reveal" title="本局最先亮将（+1 分）">亮</span>
+                            ) : null}
                             {matchNoById.has(d.id) && (
                               <span className="d-no">第 {matchNoById.get(d.id)} 局</span>
                             )}
