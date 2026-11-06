@@ -1,0 +1,23 @@
+-- migration-005: 逐人击杀数（ADR 0013）
+--
+-- 背景：新增需求「对局中玩家每击杀一人积分加一」。击杀数是**逐人**申报值
+-- （录入页每个玩家一个击杀按键，按几次算几次），因此落在 match_results
+-- 而不是 matches；首亮是局级唯一指针，两者形状不同。
+--
+-- 加分本身不单独落列 —— 它直接并入 match_results.score，score 仍是唯一真值，
+-- 总榜 SUM(score) 与三处逐局明细都不需要改。本列只作审计留底，
+-- 不进任何读取接口，也不参与任何计算。
+--
+-- 列可以为 NULL：历史对局没有击杀数据。ADD COLUMN 后自动为 NULL，正好对应
+-- 「只对新录入对局生效、历史不重算不补录」（ADR 0013 / ADR 0003 赛季结束后不可修改）。
+-- **不要在这里写 UPDATE 回填**，也不要写 DEFAULT 0 —— 0 会给历史对局赋予一个
+-- 当时并不存在的「0 次击杀」语义。
+--
+-- 幂等性：ADD COLUMN 重复执行会报 "duplicate column name"，属预期；本脚本只跑一次。
+-- 顺序：schema.sql 是「当前结构」，全新库直接跑 schema.sql 即可，
+-- 本脚本只用于已有库升级（见 worker/README.md 的迁移约定）。
+--
+-- 线上执行（--remote 不能省，否则打在空库上却报成功）：
+--   npx --yes wrangler d1 execute guozhan-scoring --remote --file=migration-005-kill-count.sql
+
+ALTER TABLE match_results ADD COLUMN kill_count INTEGER;

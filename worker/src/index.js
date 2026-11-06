@@ -21,7 +21,7 @@ function checkAuth(request, env) {
 }
 
 // 积分公式：存活者得 (死亡人数+1) 分，死者从死亡人数递减至 1；
-// 首亮玩家在此基础上再加 1 分（ADR 0012）。
+// 首亮玩家在此基础上再加 1 分（ADR 0012），每人再按申报击杀数每人头 +1（ADR 0013）。
 // 注意：react-app/src/pages/MatchPage.jsx 的「分数预览」是这份逻辑的第二份实现，
 // 改动必须两处同步，单测里有源码守卫盯着。
 function calculateScores(results, firstRevealPlayerId = null) {
@@ -41,6 +41,15 @@ function calculateScores(results, firstRevealPlayerId = null) {
     const first = results.find(r => String(r.player_id) === String(firstRevealPlayerId));
     if (first) first.score += 1;
   }
+
+  // 击杀加分（ADR 0013）：接口层已把缺省当 0、非法值挡在门外；
+  // 这里再防御一次，避免别处直接调用时 undefined / 字符串把 score 变成 NaN 或拼接。
+  // 只认正整数并夹在 0..D —— 宁可不加分，也不能污染分数或绕过申报上限。
+  results.forEach(r => {
+    const k = Number.isInteger(r.kill_count) && r.kill_count > 0
+      ? Math.min(r.kill_count, D) : 0;
+    r.score += k;
+  });
 
   return results;
 }
@@ -611,7 +620,20 @@ export default {
           }
         }
 
-        // 计算积分（首亮加分并入 score，ADR 0012）
+        // 击杀数校验（ADR 0013）：逐人申报值，0..D，D = 本局淘汰人数。
+        // 缺省 / null = 0，让尚未发版的旧前端仍能提交；有值就严格判整数，
+        // 字符串 "3" 不转换 —— 首亮那段用字符串比是因为只做相等判断，
+        // 这里要参与加法，宽松转换会把 '' / null 洗成合法的 0 或拼出 NaN。
+        const D = results.filter(r => r.is_survivor === 0).length;
+        for (const r of results) {
+          const k = r.kill_count == null ? 0 : r.kill_count;
+          if (!Number.isInteger(k) || k < 0 || k > D) {
+            return json({ error: '击杀数须为 0 到本局淘汰人数之间的整数' }, 400);
+          }
+          r.kill_count = k;
+        }
+
+        // 计算积分（首亮 + 击杀加分并入 score，ADR 0012 / 0013）
         const scored = calculateScores(results, firstRevealId);
         const total = scored.length;
         const survivorCount = scored.filter(r => r.is_survivor === 1).length;
@@ -624,12 +646,13 @@ export default {
         ).bind(season_id, total, firstRevealId).run();
         const matchId = matchResult.meta.last_row_id;
 
-        // 批量插入 match_results
+        // 批量插入 match_results。kill_count 只作审计留底，不进任何读取接口；
+        // 历史对局该列为 NULL，不回填（ADR 0013 / ADR 0003）。
         const insertStatements = scored.map(r =>
           env.DB.prepare(
-            `INSERT INTO match_results (match_id, player_id, rank, is_survivor, score)
-             VALUES (?, ?, ?, ?, ?)`
-          ).bind(matchId, r.player_id, r.rank, r.is_survivor, r.score)
+            `INSERT INTO match_results (match_id, player_id, rank, is_survivor, score, kill_count)
+             VALUES (?, ?, ?, ?, ?, ?)`
+          ).bind(matchId, r.player_id, r.rank, r.is_survivor, r.score, r.kill_count)
         );
         await env.DB.batch(insertStatements);
 

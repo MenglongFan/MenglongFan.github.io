@@ -7,11 +7,11 @@ import Avatar from '../components/Avatar'
 import PageHead from '../components/PageHead'
 import GoldButton from '../components/GoldButton'
 
-// 录入成绩弹窗：拖拽排序淘汰顺序 + 存活切换 + 分数预览
+// 录入成绩弹窗：拖拽排序淘汰顺序 + 存活切换 + 首亮/击杀加分 + 分数预览
 function MatchEntry({ season, players, submitRef, onSubmitted }) {
   const { showToast } = useAuth()
   const [order, setOrder] = useState(
-    players.map((p) => ({ player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0 }))
+    players.map((p) => ({ player_id: p.id, name: p.name, avatar_url: p.avatar_url, is_survivor: 0, kill_count: 0 }))
   )
   // 本局最先亮将者（ADR 0012）：null = 不指定、不加分。一局至多一人。
   const [firstRevealId, setFirstRevealId] = useState(null)
@@ -31,15 +31,39 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   const topScore = dead + 1
   const deadList = order.filter((r) => !r.is_survivor)
 
-  // 预览直接显示含首亮 +1 的最终分，与落库结果一致。
+  // 预览直接显示含首亮 +1 与击杀 +N 的最终分，与落库结果一致（ADR 0012 / 0013）。
+  // 后端 calculateScores 是同一份公式的权威实现，改动必须两处同步。
   const scores = order.map((r) => {
     const base = r.is_survivor ? topScore : dead - deadList.indexOf(r)
-    return r.player_id === firstRevealId ? base + 1 : base
+    const withReveal = r.player_id === firstRevealId ? base + 1 : base
+    return withReveal + r.kill_count
   })
   const maxScore = Math.max(...scores)
 
+  // 切换「存/亡」会改变本局淘汰人数 D，而击杀数的申报上限就是 D。
+  // 不夹回去，界面会显示一个后端必定 400 的值，直到提交才炸。
   const toggleSurvivor = (i) => {
-    setOrder((prev) => prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r))
+    setOrder((prev) => {
+      const next = prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r)
+      const cap = next.filter((r) => !r.is_survivor).length
+      return next.map((r) => r.kill_count > cap ? { ...r, kill_count: cap } : r)
+    })
+  }
+
+  // 击杀按键（ADR 0013）：按一次 +1 分，到 D 封顶；旁边的「−」回退一次，
+  // 因为 POST /api/match 是唯一写入口、提交后没有修改接口，误点必须能当场撤。
+  const addKill = (playerId) => {
+    setOrder((prev) => prev.map((r) =>
+      r.player_id === playerId && r.kill_count < dead
+        ? { ...r, kill_count: r.kill_count + 1 }
+        : r))
+  }
+
+  const removeKill = (playerId) => {
+    setOrder((prev) => prev.map((r) =>
+      r.player_id === playerId && r.kill_count > 0
+        ? { ...r, kill_count: r.kill_count - 1 }
+        : r))
   }
 
   // 单选互斥：点别人自动换人，再点自己取消。
@@ -163,6 +187,7 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
       player_id: r.player_id,
       rank: i + 1,
       is_survivor: r.is_survivor,
+      kill_count: r.kill_count,
     }))
     try {
       await api('/api/match', {
@@ -186,7 +211,7 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   return (
     <>
       <div className="sort-hint">
-        拖住左侧 <b>⠿</b> 排淘汰顺序（<b>上方 = 最后存活</b>）。「存/亡」标记存活者，「亮」指定本局最先亮将者（<b>+1 分</b>，至多一人，再点取消）。
+        拖住左侧 <b>⠿</b> 排淘汰顺序（<b>上方 = 最后存活</b>）。「存/亡」标记存活者，「亮」指定本局最先亮将者（<b>+1 分</b>，至多一人，再点取消）。下方分数旁点「杀」记一次击杀（<b>+1 分</b>，上限本局淘汰人数），点「−」回退。
       </div>
       <div className="sort-list" ref={listRef}>
         {order.map((r, i) => {
@@ -235,6 +260,29 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
               className={`score-chip ${r.is_survivor ? 'survivor' : ''} ${firstRevealId === r.player_id ? 'first-reveal' : ''}`}
             >
               {r.name}<span className="val">{scores[i]}</span>
+              {/* 击杀分小控件：分数旁边显示本局击杀分，点「杀」累加一次、点「−」回退。
+                  放在这里而不是 .sort-item 行尾 —— 320px 下拖拽行放不下第三枚按钮。 */}
+              <span className="kill-ctrl">
+                {r.kill_count > 0 && (
+                  <button
+                    type="button"
+                    className="kill-minus"
+                    onClick={() => removeKill(r.player_id)}
+                    title="回退一次击杀（−1 分）"
+                    aria-label={`${r.name} 回退一次击杀`}
+                  >−</button>
+                )}
+                <button
+                  type="button"
+                  className={`kill-add ${r.kill_count > 0 ? 'has-kills' : ''}`}
+                  onClick={() => addKill(r.player_id)}
+                  disabled={dead === 0 || r.kill_count >= dead}
+                  title={dead === 0 ? '本局无人淘汰，不能记击杀' : `记一次击杀（+1 分，上限本局淘汰人数 ${dead}）`}
+                  aria-label={`${r.name} 记一次击杀，当前 ${r.kill_count} 次`}
+                >
+                  杀<span className="kill-count">+{r.kill_count}</span>
+                </button>
+              </span>
             </span>
           ))}
         </div>

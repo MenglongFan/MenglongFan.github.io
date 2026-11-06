@@ -1102,7 +1102,8 @@ input{font-family:inherit;}
 .score-preview-title .top-score{color:var(--gold);font-weight:700;font-family:var(--font-serif);font-size:14px;flex-shrink:0;}
 .score-preview-grid{display:flex;flex-wrap:wrap;gap:6px;}
 .score-chip{
-  padding:6px 13px;border-radius:999px;
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 8px 6px 13px;border-radius:999px;
   font-size:13px;font-weight:600;
   background:var(--paper-faint);
   color:var(--paper-dim);
@@ -1117,7 +1118,27 @@ input{font-family:inherit;}
   background:rgba(233,200,124,0.24);color:var(--gold-bright);
   box-shadow:inset 0 0 0 1px rgba(233,200,124,0.55);
 }
-.score-chip .val{color:var(--gold);margin-left:6px;font-family:var(--font-display);font-size:15px;}
+.score-chip .val{color:var(--gold);margin-left:1px;font-family:var(--font-display);font-size:15px;}
+
+/* 击杀分小控件（ADR 0013）：挂在分数预览 chip 里，紧挨分数显示 +N。
+   不进 .sort-item 拖拽行 —— 320px 下那行已有「亮」「存/亡」两枚按钮，
+   再加第三枚会把 .sort-name 压没（ADR 0008 的「盲拖」失效模式）。
+   这里是 flex-wrap，宽度不紧张，也不在 startDrag 的 onPointerDown 区域内。 */
+.kill-ctrl{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;}
+.kill-ctrl button{
+  height:22px;display:inline-flex;align-items:center;justify-content:center;
+  padding:0 7px;border-radius:999px;
+  border:1px solid rgba(233,200,124,0.35);
+  background:rgba(233,200,124,0.08);color:var(--gold);
+  font-family:var(--font-serif);font-size:11px;font-weight:700;line-height:1;
+  cursor:pointer;transition:all .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.kill-ctrl button:hover:not(:disabled){background:rgba(233,200,124,0.24);color:var(--gold-bright);}
+.kill-ctrl .kill-add.has-kills{background:rgba(233,200,124,0.28);color:var(--gold-bright);}
+.kill-ctrl .kill-add:disabled{opacity:0.38;cursor:not-allowed;}
+.kill-ctrl .kill-count{margin-left:3px;font-family:var(--font-display);font-size:11px;}
+.kill-ctrl .kill-minus{width:20px;padding:0;border-style:dashed;}
 
 /* ============ 花名册 ============ */
 .roster-item{
@@ -2014,6 +2035,11 @@ input{font-family:inherit;}
      下方「分数预览」区本来就有每人的最终分（含首亮 +1），信息没丢，只是不重复显示。
      这样 .sort-name 回到约 57px，比新增按钮之前的版本还宽。 */
   .sort-score{display:none;}
+  /* chip 里多了击杀控件，窄屏再收紧一点，避免一行只放得下两枚 chip、把预览区撑高。 */
+  .score-chip{padding:5px 6px 5px 10px;font-size:12px;gap:3px;}
+  .score-chip .val{font-size:14px;}
+  .kill-ctrl button{height:20px;padding:0 5px;font-size:10px;}
+  .kill-ctrl .kill-minus{width:18px;}
 }
 
 @media(min-width:640px){

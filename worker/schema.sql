@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS match_results (
   player_id   INTEGER NOT NULL REFERENCES players(id),
   rank        INTEGER NOT NULL,                -- 录入时的拖拽顺序，**不是名次**；展示名次由接口推导
   is_survivor INTEGER DEFAULT 0,
-  score       INTEGER NOT NULL
+  score       INTEGER NOT NULL,
+  -- 本局申报击杀数（ADR 0013）：每人头 +1，加分已并入 score，本列只作审计留底。
+  -- 历史对局一律为 NULL、不回填；不进任何读取接口。
+  kill_count  INTEGER
 );
 
 -- 赛季 ↔ 玩家的报名关系。Worker 在 standings 与赛季详情里读写，

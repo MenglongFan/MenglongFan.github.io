@@ -14,15 +14,18 @@
 > | 首页入口 | `index.html` 项目卡 2，`data-href="./scoring/"` |
 > | 部署步骤 | 见 `worker/README.md` |
 >
-> **后端部分（Cloudflare D1 + Workers、罚金规则）没有变**；唯一例外是积分公式：
+> **后端部分（Cloudflare D1 + Workers、罚金规则）没有变**；积分公式是例外：
 > [ADR 0012](./adr/0012-first-reveal-bonus.md) 起给每局最先亮将的玩家加 1 分，
-> `POST /api/match` 请求体也新增了可选的 `first_reveal_player_id`。
+> [ADR 0013](./adr/0013-kill-count-bonus.md) 起再按每名玩家申报的击杀数每人头加 1 分，
+> `POST /api/match` 请求体也先后新增了可选的 `first_reveal_player_id` 与 `results[].kill_count`。
 > 本文档中与后端、数据模型、用户故事相关的内容依然有效，可直接作为 React 版的需求依据。
 >
-> **但正文里描述积分公式与分数预览的段落是旧版记录、不再作为需求依据**：
+> **但正文里描述积分公式、分数预览与记录范围的段落是旧版记录、不再作为需求依据**：
 > 「成绩录入」用户故事 18、`match_results.score` 的列注释、`POST /api/match` 的算分说明、
-> 「积分公式」小节。这几处一律以 `CONTEXT.md` 的「积分公式」词条与 ADR 0012 为准
-> （_Contradicts ADR-0012 的历史表述_）。
+> 「积分公式」小节，以及 Out of Scope 里「只记淘汰顺序、首亮玩家和积分」那句
+> （现在还记每名玩家的申报击杀数，但仍不记武将牌、不记击杀对象）。
+> 这几处一律以 `CONTEXT.md` 的「积分公式」词条与 ADR 0012 / 0013 为准
+> （_Contradicts ADR-0012 / ADR-0013 的历史表述_）。
 >
 > 本文正文保留原样，作为旧版前端的实现记录，不再逐处改写。
 
