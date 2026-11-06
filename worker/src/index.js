@@ -42,13 +42,16 @@ function calculateScores(results, firstRevealPlayerId = null) {
     if (first) first.score += 1;
   }
 
-  // 击杀加分（ADR 0013）：接口层已把缺省当 0、非法值挡在门外；
-  // 这里再防御一次，避免别处直接调用时 undefined / 字符串把 score 变成 NaN 或拼接。
-  // 只认正整数并夹在 0..D —— 宁可不加分，也不能污染分数或绕过申报上限。
+  // 击杀加分（ADR 0013 修订）：额度是**全局**的 —— 一局淘汰 D 人，最多产生 D 次击杀。
+  // 接口层已在超额时返回 400；这里按行顺序发放剩余额度，作为第二道防线，
+  // 保证别处直接调用时 undefined / 字符串不会把 score 变成 NaN 或拼接，
+  // 也不会发出超过物理上限的分数。合法请求（Σ <= D）下 min 恒等于原值。
+  let killBudget = D;
   results.forEach(r => {
     const k = Number.isInteger(r.kill_count) && r.kill_count > 0
-      ? Math.min(r.kill_count, D) : 0;
+      ? Math.min(r.kill_count, killBudget) : 0;
     r.score += k;
+    killBudget -= k;
   });
 
   return results;
@@ -620,17 +623,25 @@ export default {
           }
         }
 
-        // 击杀数校验（ADR 0013）：逐人申报值，0..D，D = 本局淘汰人数。
+        // 击杀数校验（ADR 0013 修订）：约束的是**全场合计**，不是逐人上限。
+        // 一局只淘汰 D 个人，最多产生 D 次击杀；给每人发一份 D 的额度会让
+        // 7 人场（6 死）全场发出 42 次击杀，和「每击杀一人加一分」完全相反。
+        // 额度可以给一个人，也可以分给多人，只卡总数。
         // 缺省 / null = 0，让尚未发版的旧前端仍能提交；有值就严格判整数，
         // 字符串 "3" 不转换 —— 首亮那段用字符串比是因为只做相等判断，
         // 这里要参与加法，宽松转换会把 '' / null 洗成合法的 0 或拼出 NaN。
         const D = results.filter(r => r.is_survivor === 0).length;
+        let killTotal = 0;
         for (const r of results) {
           const k = r.kill_count == null ? 0 : r.kill_count;
-          if (!Number.isInteger(k) || k < 0 || k > D) {
-            return json({ error: '击杀数须为 0 到本局淘汰人数之间的整数' }, 400);
+          if (!Number.isInteger(k) || k < 0) {
+            return json({ error: '击杀数须为非负整数' }, 400);
           }
           r.kill_count = k;
+          killTotal += k;
+        }
+        if (killTotal > D) {
+          return json({ error: `本局击杀合计 ${killTotal} 次，超过淘汰人数 ${D} 人` }, 400);
         }
 
         // 计算积分（首亮 + 击杀加分并入 score，ADR 0012 / 0013）

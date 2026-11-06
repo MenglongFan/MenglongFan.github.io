@@ -1120,6 +1120,15 @@ input{font-family:inherit;}
 }
 .score-chip .val{color:var(--gold);margin-left:1px;font-family:var(--font-display);font-size:15px;}
 
+/* 全局击杀额度（ADR 0013 修订）：单独一行，不塞进 .score-preview-title ——
+   那行右侧已有「存活/淘汰/最高分」，320px 下再追加文字会溢出。 */
+.kill-budget{
+  font-family:var(--font-label);font-size:11px;color:var(--paper-mute);
+  letter-spacing:0.05em;margin:-6px 0 10px;
+}
+.kill-budget b{color:var(--gold);font-family:var(--font-display);font-size:13px;}
+.kill-budget .kill-budget-full{color:var(--gold-bright);}
+
 /* 击杀分小控件（ADR 0013）：挂在分数预览 chip 里，紧挨分数显示 +N。
    不进 .sort-item 拖拽行 —— 320px 下那行已有「亮」「存/亡」两枚按钮，
    再加第三枚会把 .sort-name 压没（ADR 0008 的「盲拖」失效模式）。

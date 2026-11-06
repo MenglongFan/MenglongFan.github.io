@@ -40,23 +40,44 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   })
   const maxScore = Math.max(...scores)
 
-  // 切换「存/亡」会改变本局淘汰人数 D，而击杀数的申报上限就是 D。
-  // 不夹回去，界面会显示一个后端必定 400 的值，直到提交才炸。
+  // 击杀额度是**全局**的（ADR 0013 修订）：一局只淘汰 dead 人，全场最多记 dead 次击杀。
+  // 逐人发额度会让 7 人场（6 死）全场按出 42 次，和「每击杀一人加一分」正好相反。
+  const killUsed = order.reduce((sum, r) => sum + r.kill_count, 0)
+  const killLeft = Math.max(0, dead - killUsed)
+
+  // 切换「存/亡」会改变全局额度 D。超额时从击杀数最多的人开始逐个回退，
+  // 尽量保住其他人已按出的次数；同数取靠前行，结果确定、不随渲染抖动。
   const toggleSurvivor = (i) => {
     setOrder((prev) => {
       const next = prev.map((r, idx) => idx === i ? { ...r, is_survivor: r.is_survivor ? 0 : 1 } : r)
       const cap = next.filter((r) => !r.is_survivor).length
-      return next.map((r) => r.kill_count > cap ? { ...r, kill_count: cap } : r)
+      let over = next.reduce((s, r) => s + r.kill_count, 0) - cap
+      if (over <= 0) return next
+      const trimmed = next.map((r) => ({ ...r }))
+      while (over > 0) {
+        let pick = -1
+        for (let j = 0; j < trimmed.length; j++) {
+          if (trimmed[j].kill_count > 0 &&
+              (pick === -1 || trimmed[j].kill_count > trimmed[pick].kill_count)) pick = j
+        }
+        if (pick === -1) break
+        trimmed[pick].kill_count -= 1
+        over -= 1
+      }
+      return trimmed
     })
   }
 
-  // 击杀按键（ADR 0013）：按一次 +1 分，到 D 封顶；旁边的「−」回退一次，
-  // 因为 POST /api/match 是唯一写入口、提交后没有修改接口，误点必须能当场撤。
+  // 击杀按键（ADR 0013）：按一次 +1 分，消耗的是全场合计额度；「−」回退一次。
+  // 提交后没有修改接口，误点必须能当场撤。用 prev 现算已用量，避免连点时闭包过期。
   const addKill = (playerId) => {
-    setOrder((prev) => prev.map((r) =>
-      r.player_id === playerId && r.kill_count < dead
+    setOrder((prev) => {
+      const used = prev.reduce((s, r) => s + r.kill_count, 0)
+      if (used >= dead) return prev
+      return prev.map((r) => r.player_id === playerId
         ? { ...r, kill_count: r.kill_count + 1 }
-        : r))
+        : r)
+    })
   }
 
   const removeKill = (playerId) => {
@@ -211,7 +232,7 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   return (
     <>
       <div className="sort-hint">
-        拖住左侧 <b>⠿</b> 排淘汰顺序（<b>上方 = 最后存活</b>）。「存/亡」标记存活者，「亮」指定本局最先亮将者（<b>+1 分</b>，至多一人，再点取消）。下方分数旁点「杀」记一次击杀（<b>+1 分</b>，上限本局淘汰人数），点「−」回退。
+        拖住左侧 <b>⠿</b> 排淘汰顺序（<b>上方 = 最后存活</b>）。「存/亡」标记存活者，「亮」指定本局最先亮将者（<b>+1 分</b>，至多一人，再点取消）。下方分数旁点「杀」记一次击杀（<b>+1 分</b>），<b>全场合计上限 = 本局淘汰人数</b>，点「−」回退。
       </div>
       <div className="sort-list" ref={listRef}>
         {order.map((r, i) => {
@@ -253,6 +274,10 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
           <span>分数预览</span>
           <span className="top-score">存活 {survivors} · 淘汰 {dead} · 最高 {maxScore} 分</span>
         </div>
+        <div className="kill-budget">
+          本局击杀合计 <b>{killUsed}</b> / {dead}
+          {dead > 0 && killLeft === 0 && <span className="kill-budget-full"> · 全场额度已用完</span>}
+        </div>
         <div className="score-preview-grid">
           {order.map((r, i) => (
             <span
@@ -276,8 +301,10 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
                   type="button"
                   className={`kill-add ${r.kill_count > 0 ? 'has-kills' : ''}`}
                   onClick={() => addKill(r.player_id)}
-                  disabled={dead === 0 || r.kill_count >= dead}
-                  title={dead === 0 ? '本局无人淘汰，不能记击杀' : `记一次击杀（+1 分，上限本局淘汰人数 ${dead}）`}
+                  disabled={dead === 0 || killLeft === 0}
+                  title={dead === 0 ? '本局无人淘汰，不能记击杀'
+                    : killLeft === 0 ? `本局 ${dead} 次击杀额度已用完`
+                    : `记一次击杀（+1 分，全场剩余 ${killLeft} 次）`}
                   aria-label={`${r.name} 记一次击杀，当前 ${r.kill_count} 次`}
                 >
                   杀<span className="kill-count">+{r.kill_count}</span>
