@@ -213,9 +213,14 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
     raf = requestAnimationFrame(tick)
   }
 
-  // 提交锁：后端 /api/match 没有幂等键，每次请求都直接 INSERT 一局。
-  // 请求慢的时候按钮没有任何反馈，房主以为没点上就会连点 → 同一局被录入多次。
-  // 必须用 ref 做同步锁：state 要等下一帧才更新，挡不住同一轮事件里的连续点击。
+  // 提交锁：后端 /api/match 有 client_token 幂等键（migration-006），
+  // 但前端这层也要堵住重复请求——请求慢的时候按钮没有任何反馈，房主以为没点上
+  // 就会连点。必须用 ref 做同步锁：state 要等下一帧才更新，挡不住同一轮事件里的连续点击。
+  //
+  // 关键：成功提交后**不释放锁**。onSubmitted() 调 closeModal() + navigate('/')
+  // 是异步渲染，弹窗 DOM 在这一帧还没真正卸载，如果在卸载前的微小窗口里释放了锁，
+  // 再点一次「提交」就会发出第二个请求（虽然后端唯一索引会挡住，但不该让请求发出去）。
+  // 只有失败才解锁，允许房主修正后重试。弹窗关闭即组件卸载，锁随组件一起销毁，不会泄漏。
   const submittingRef = useRef(false)
 
   // 页脚按钮的 JSX 是 setModalContent 传进去的、会被冻住（见 SeasonPage 同款说明），
@@ -249,14 +254,14 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
           results,
         }),
       })
-      // 成功：弹窗由 onSubmitted 关掉，按钮随之卸载，无需恢复
+      // 成功：不释放锁，弹窗由 onSubmitted 关掉、组件卸载，锁随之销毁。
       onSubmitted()
     } catch (e) {
-      setBusy(false)   // 失败才解锁，允许重试
+      submittingRef.current = false  // 失败才解锁，允许重试
+      setBusy(false)
       showToast(e.message, 'error')
-    } finally {
-      submittingRef.current = false
     }
+    // 注意：没有 finally —— 成功路径不释放锁，避免弹窗卸载前的窗口期被重复触发。
   }
 
   // 让外部页脚「提交」按钮始终调用最新闭包
