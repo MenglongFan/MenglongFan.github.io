@@ -27,8 +27,18 @@ for f in migration-*.sql; do wrangler d1 execute guozhan-scoring --remote --file
 `--remote` 不能省。省了会静默打到本地 miniflare 的空库上，看起来成功、线上其实没动。
 
 迁移按编号顺序跑。`migration-001` 里的 `ALTER TABLE players ADD COLUMN avatar_url`
-在当前 `schema.sql` 下会报 `duplicate column name` —— 那是预期的，`schema.sql` 是
+与 `migration-006` 里的 `ALTER TABLE matches ADD COLUMN client_token` 在当前
+`schema.sql` 下会报 `duplicate column name` —— 那是预期的，`schema.sql` 是
 **当前**的表结构，列增删类迁移自然会撞上，其余语句照常执行。
+**只有全新库需要先跑 `schema.sql` 再跑迁移；已在线上跑过 `schema.sql` 的库，
+只补跑新增编号的迁移即可。**
+
+`migration-006` 给 `matches` 加录入幂等键 `client_token` 与部分唯一索引
+`(season_id, client_token) WHERE client_token IS NOT NULL`。它必须在
+`wrangler deploy` **之前**执行：新 Worker 的 `POST /api/match` 会写入这一列，
+列不存在时录入会 500。改造后的链路是「前端每次打开录入弹窗生成 token →
+后端先按 token 查已有局 → 命中直接返回 → 并发窗口由唯一索引兜住 →
+明细批量写失败则撤掉对局行」，连点与网络重试都不会再产生第二局。
 
 ## 4. 设置房主密码
 

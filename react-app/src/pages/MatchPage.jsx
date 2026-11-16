@@ -16,6 +16,16 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
   // 本局最先亮将者（ADR 0012）：null = 不指定、不加分。一局至多一人。
   const [firstRevealId, setFirstRevealId] = useState(null)
   const [dragIndex, setDragIndex] = useState(null)
+
+  // 录入幂等键：每次打开录入弹窗生成一次，连点 / 失败重试都复用同一个值。
+  // 弹窗重开 = 组件重新挂载 = 新 token，所以「另打一局」不会被误判成重复提交。
+  // 后端按 (season_id, client_token) 唯一约束收口，见 migration-006。
+  const [clientToken] = useState(() => {
+    const rand = globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    return `m-${rand}`
+  })
   const listRef = useRef(null)
   const dragRef = useRef(null)
   const detachRef = useRef(null)
@@ -203,26 +213,49 @@ function MatchEntry({ season, players, submitRef, onSubmitted }) {
     raf = requestAnimationFrame(tick)
   }
 
+  // 提交锁：后端 /api/match 没有幂等键，每次请求都直接 INSERT 一局。
+  // 请求慢的时候按钮没有任何反馈，房主以为没点上就会连点 → 同一局被录入多次。
+  // 必须用 ref 做同步锁：state 要等下一帧才更新，挡不住同一轮事件里的连续点击。
+  const submittingRef = useRef(false)
+
+  // 页脚按钮的 JSX 是 setModalContent 传进去的、会被冻住（见 SeasonPage 同款说明），
+  // 所以不能用 state 控 disabled，只能按 id 直接改 DOM。弹窗关闭后节点已卸载，
+  // isConnected=false 时直接跳过，别去碰游离节点。
+  const setBusy = (busy) => {
+    const btn = document.getElementById('match-submit-btn')
+    if (!btn || !btn.isConnected) return
+    btn.disabled = busy
+    btn.textContent = busy ? '提交中…' : '提交'
+  }
+
   const handleSubmit = async () => {
-    const results = order.map((r, i) => ({
-      player_id: r.player_id,
-      rank: i + 1,
-      is_survivor: r.is_survivor,
-      kill_count: r.kill_count,
-    }))
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setBusy(true)
     try {
+      const results = order.map((r, i) => ({
+        player_id: r.player_id,
+        rank: i + 1,
+        is_survivor: r.is_survivor,
+        kill_count: r.kill_count,
+      }))
       await api('/api/match', {
         method: 'POST',
         auth: true,
         body: JSON.stringify({
           season_id: season.id,
           first_reveal_player_id: firstRevealId,
+          client_token: clientToken,
           results,
         }),
       })
+      // 成功：弹窗由 onSubmitted 关掉，按钮随之卸载，无需恢复
       onSubmitted()
     } catch (e) {
+      setBusy(false)   // 失败才解锁，允许重试
       showToast(e.message, 'error')
+    } finally {
+      submittingRef.current = false
     }
   }
 
@@ -356,7 +389,7 @@ export default function MatchPage() {
         <MatchEntry season={season} players={players} submitRef={submitRef} onSubmitted={onSubmitted} />,
         <>
           <button className="btn btn-ghost" onClick={closeModal}>取消</button>
-          <button className="btn btn-primary" onClick={() => submitRef.current && submitRef.current()}>提交</button>
+          <button id="match-submit-btn" className="btn btn-primary" onClick={() => submitRef.current && submitRef.current()}>提交</button>
         </>)
     } catch (e) {
       showToast(e.message, 'error')

@@ -15,6 +15,29 @@ function json(data, status = 200) {
   });
 }
 
+// 幂等命中：返回已存在的那一局，响应结构与首次提交完全一致。
+// 用于两处：提交前查到重复 token、以及并发 INSERT 撞唯一索引后的回查。
+// 放在校验之后调用，重复请求仍需通过同样的业务校验，避免旧 token 带脏 body 被放行。
+async function existingMatchResponse(db, seasonId, token) {
+  const existing = await db.prepare(
+    `SELECT id FROM matches WHERE season_id = ? AND client_token = ?`
+  ).bind(seasonId, token).first();
+  if (!existing) return null;
+
+  const rows = await db.prepare(
+    `SELECT player_id, rank, is_survivor, score, kill_count
+       FROM match_results WHERE match_id = ? ORDER BY rank`
+  ).bind(existing.id).all();
+  const results = rows.results || [];
+  return json({
+    id: existing.id,
+    player_count: results.length,
+    survivors: results.filter(r => r.is_survivor === 1).length,
+    results,
+    duplicate: true,
+  });
+}
+
 function checkAuth(request, env) {
   const key = request.headers.get('X-House-Key');
   return key && key === env.HOUSE_KEY;
@@ -597,6 +620,12 @@ export default {
         const body = await request.json();
         const { season_id, results, first_reveal_player_id } = body;
 
+        // 录入幂等键（migration-006）：前端每次打开录入弹窗生成一个，连点 / 网络重试
+        // 带着同一个值回来。限 64 字符，避免异常长串进索引；缺省 = 旧前端，行为不变。
+        const clientToken = typeof body.client_token === 'string'
+          ? body.client_token.trim().slice(0, 64) || null
+          : null;
+
         // 验证 5-10 人
         if (results.length < 5 || results.length > 10) {
           return json({ error: '参与人数须为 5-10 人' }, 400);
@@ -647,6 +676,14 @@ export default {
           return json({ error: `本局击杀合计 ${killTotal} 次，超过淘汰人数 ${D} 人` }, 400);
         }
 
+        // 幂等命中：同一 token 已经录入过就直接返回那一局，不再插入第二遍。
+        // 放在全部校验之后，重复请求仍要过同样的业务规则，旧 token 带脏 body 不会被放行。
+        // 缺省 token（旧前端）时跳过，行为与改造前完全一致。
+        if (clientToken) {
+          const hit = await existingMatchResponse(env.DB, season_id, clientToken);
+          if (hit) return hit;
+        }
+
         // 计算积分（首亮 + 击杀加分并入 score，ADR 0012 / 0013）
         const scored = calculateScores(results, firstRevealId);
         const total = scored.length;
@@ -655,10 +692,23 @@ export default {
         // 插入 match。first_reveal_player_id 是局级真相，
         // /api/player/:id/details 由它派生 is_first_reveal 供三处明细使用（ADR 0012 后补）；
         // 历史对局该列为 NULL，不回填（ADR 0003）。
-        const matchResult = await env.DB.prepare(
-          `INSERT INTO matches (season_id, player_count, first_reveal_player_id) VALUES (?, ?, ?)`
-        ).bind(season_id, total, firstRevealId).run();
-        const matchId = matchResult.meta.last_row_id;
+        let matchId;
+        try {
+          const matchResult = await env.DB.prepare(
+            `INSERT INTO matches (season_id, player_count, first_reveal_player_id, client_token)
+             VALUES (?, ?, ?, ?)`
+          ).bind(season_id, total, firstRevealId, clientToken).run();
+          matchId = matchResult.meta.last_row_id;
+        } catch (err) {
+          // 并发窗口：两个带同一 token 的请求同时通过了上面的 SELECT，唯一索引让
+          // 后到的这次插入失败。回查那一局返回，语义等同提交成功。
+          // 无 token 或非唯一索引错误则原样抛出，不吞异常。
+          if (clientToken) {
+            const hit = await existingMatchResponse(env.DB, season_id, clientToken);
+            if (hit) return hit;
+          }
+          throw err;
+        }
 
         // 批量插入 match_results。kill_count 只作审计留底，不进任何读取接口；
         // 历史对局该列为 NULL，不回填（ADR 0013 / ADR 0003）。
@@ -668,7 +718,16 @@ export default {
              VALUES (?, ?, ?, ?, ?, ?)`
           ).bind(matchId, r.player_id, r.rank, r.is_survivor, r.score, r.kill_count)
         );
-        await env.DB.batch(insertStatements);
+        try {
+          await env.DB.batch(insertStatements);
+        } catch (err) {
+          // 补偿：明细没写全就把刚插的对局行撤掉，避免留下 rows_n < player_count 的
+          // 半截局 —— 否则同一 token 的重试会命中它，明细却永远补不回来。
+          try {
+            await env.DB.prepare(`DELETE FROM matches WHERE id = ?`).bind(matchId).run();
+          } catch (_) { /* 原异常优先，不覆盖 */ }
+          throw err;
+        }
 
         return json({ id: matchId, player_count: total, survivors: survivorCount, results: scored });
       }

@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS matches (
   played_at    TEXT DEFAULT (datetime('now')),
   -- 一局最先亮将的玩家（ADR 0012）。NULL = 本局不指定、不加分。
   -- 历史对局一律为 NULL、不回填；仅作审计留底，不参与任何读取接口。
-  first_reveal_player_id INTEGER REFERENCES players(id)
+  first_reveal_player_id INTEGER REFERENCES players(id),
+  -- 录入幂等键（migration-006）。前端每次打开录入弹窗生成一个，连点/重试复用；
+  -- 历史行为 NULL，不进部分唯一索引。
+  client_token TEXT
 );
 
 CREATE TABLE IF NOT EXISTS match_results (
@@ -60,6 +63,12 @@ CREATE TABLE IF NOT EXISTS prize_pool_transactions (
   balance     REAL NOT NULL,                   -- 操作后奖池余额
   created_at  TEXT DEFAULT (datetime('now'))
 );
+
+-- 部分唯一索引：同一赛季内同一 client_token 只允许一局（migration-006）。
+-- NULL 的历史行不进索引，所以旧数据不受影响。
+CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_client_token
+  ON matches(season_id, client_token)
+ WHERE client_token IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_match_results_match ON match_results(match_id);
 CREATE INDEX IF NOT EXISTS idx_match_results_player ON match_results(player_id);
